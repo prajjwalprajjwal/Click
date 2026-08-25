@@ -51,6 +51,8 @@ void setup() {
     Serial.begin(115200);
     delay(100);
 
+    Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
+
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         while (1) {
             delay(1000);

@@ -4,7 +4,7 @@
 #include <Arduino.h>
 
 #define MODE_BUTTON_PIN 14
-#define ACTION_BUTTON_PIN 27
+#define ACTION_BUTTON_PIN 32
 #define LONG_HOLD_THRESHOLD_MS 1000
 #define BOTH_HOLD_THRESHOLD_MS 4000
 

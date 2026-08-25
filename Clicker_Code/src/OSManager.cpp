@@ -1,5 +1,6 @@
 #include "OSManager.h"
 #include "Display.h"
+#include "PowerManager.h"
 
 OSManager::OSManager() = default;
 
@@ -73,12 +74,18 @@ void OSManager::enterLightSleep() {
     sleepState = LIGHT_SLEEP;
     displayOn = false;
     
-    // Turn off display
+    // Turn off display controller
     display.clearDisplay();
     display.ssd1306_command(SSD1306_DISPLAYOFF);
     display.display();
     
-    Serial.println("[OSManager] Light sleep: Display OFF");
+    Serial.println("[OSManager] Light sleep: Entering low power sleep...");
+
+    // Execute GPIO hold, power domain teardown, RF off, and enter esp_light_sleep_start()
+    PowerManager::enterLightSleep();
+
+    // CPU resumes here immediately upon GPIO wakeup
+    wakeFromLightSleep();
 }
 
 void OSManager::wakeFromLightSleep() {
@@ -86,10 +93,19 @@ void OSManager::wakeFromLightSleep() {
     sleepState = AWAKE;
     displayOn = true;
     
-    // Turn on display
+    // Explicitly re-initialize display driver instance post-wake
+    display.begin(SSD1306_SWITCHCAPVCC, 0x3C, true, true);
     display.ssd1306_command(SSD1306_DISPLAYON);
-    
-    Serial.println("[OSManager] Light sleep: Woken up, Display ON");
+
+    // Update last activity time to prevent immediate re-entry
+    recordActivity();
+
+    // Redraw the current screen frame immediately to clear blank buffer
+    if (currentApplet) {
+        currentApplet->draw();
+    }
+
+    Serial.println("[OSManager] Light sleep: Woken up, Display re-initialized & ON");
 }
 
 void OSManager::enterDeepSleep() {
@@ -105,9 +121,9 @@ void OSManager::enterDeepSleep() {
     display.ssd1306_command(SSD1306_DISPLAYOFF);
     display.display();
     
-    // Configure GPIO wakeup for both buttons (D14 and D27)
+    // Configure GPIO wakeup for both buttons (D14 and D32)
     esp_sleep_enable_ext0_wakeup(GPIO_NUM_14, 0);  // Wake on LOW (button press)
-    esp_sleep_enable_ext1_wakeup(1ULL << 27, ESP_EXT1_WAKEUP_ALL_LOW);  // D27 also wakes on LOW
+    esp_sleep_enable_ext1_wakeup(1ULL << 32, ESP_EXT1_WAKEUP_ALL_LOW);  // D32 also wakes on LOW
     
     Serial.println("[OSManager] Deep sleep: entering... (wake on button press)");
     delay(100);
