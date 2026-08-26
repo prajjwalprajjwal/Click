@@ -1,0 +1,988 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clicker Firmware Flasher | click.uprajjwal.com.np</title>
+  <meta name="description" content="Web-based firmware updater for Clicker ESP32 device. Fast, safe updates with zero data loss over Web Serial.">
+
+  <!-- Google Fonts: Rajdhani & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+
+  <!-- ESP Web Tools Module -->
+  <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
+
+  <style>
+    :root {
+      --click-bg: #07090e;
+      --click-surface: #0e131f;
+      --click-card: rgba(16, 23, 38, 0.75);
+      --click-border: rgba(56, 88, 134, 0.25);
+      --click-border-hover: rgba(0, 240, 255, 0.45);
+      --click-cyan: #00f0ff;
+      --click-cyan-glow: rgba(0, 240, 255, 0.25);
+      --click-emerald: #10b981;
+      --click-emerald-glow: rgba(16, 185, 129, 0.2);
+      --click-amber: #f59e0b;
+      --click-purple: #8b5cf6;
+      --click-text: #f8fafc;
+      --click-text-secondary: #94a3b8;
+      --click-text-muted: #64748b;
+      --click-font-display: 'Rajdhani', -apple-system, sans-serif;
+      --click-font-body: 'Inter', -apple-system, sans-serif;
+      --click-font-mono: 'JetBrains Mono', monospace;
+    }
+
+    *, *::before, *::after {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: var(--click-font-body);
+      background-color: var(--click-bg);
+      color: var(--click-text);
+      line-height: 1.6;
+      min-height: 100vh;
+      background-image: 
+        radial-gradient(ellipse 70% 40% at 50% -10%, rgba(0, 240, 255, 0.12), transparent 70%),
+        radial-gradient(ellipse 60% 30% at 85% 95%, rgba(139, 92, 246, 0.08), transparent 70%);
+      background-attachment: fixed;
+    }
+
+    .flasher-container {
+      max-width: 1040px;
+      margin: 0 auto;
+      padding: 3rem 1.5rem 5rem;
+    }
+
+    /* Header */
+    .flasher-header {
+      text-align: center;
+      margin-bottom: 2.5rem;
+    }
+
+    .badge-pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      padding: 0.35rem 0.9rem;
+      border-radius: 9999px;
+      background: rgba(0, 240, 255, 0.08);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+      color: var(--click-cyan);
+      font-family: var(--click-font-display);
+      font-size: 0.95rem;
+      font-weight: 700;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      margin-bottom: 1rem;
+    }
+
+    .pulse-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--click-cyan);
+      box-shadow: 0 0 10px var(--click-cyan);
+      animation: pulse-glow 2s infinite;
+    }
+
+    @keyframes pulse-glow {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.4; transform: scale(0.85); }
+    }
+
+    .flasher-title {
+      font-family: var(--click-font-display);
+      font-size: 2.5rem;
+      font-weight: 700;
+      letter-spacing: -0.01em;
+      line-height: 1.15;
+      color: #ffffff;
+      margin-bottom: 0.5rem;
+    }
+
+    .flasher-subtitle {
+      font-size: 1.05rem;
+      color: var(--click-text-secondary);
+      max-width: 600px;
+      margin: 0 auto;
+    }
+
+    /* NVS Safe Alert */
+    .nvs-safe-banner {
+      background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(0, 240, 255, 0.04) 100%);
+      border: 1px solid rgba(16, 185, 129, 0.35);
+      border-radius: 14px;
+      padding: 1rem 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 0 25px rgba(16, 185, 129, 0.15);
+    }
+
+    .nvs-icon {
+      flex-shrink: 0;
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: rgba(16, 185, 129, 0.2);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--click-emerald);
+    }
+
+    .nvs-text h4 {
+      font-family: var(--click-font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: var(--click-emerald);
+      letter-spacing: 0.03em;
+    }
+
+    .nvs-text p {
+      font-size: 0.88rem;
+      color: var(--click-text-secondary);
+    }
+
+    /* Layout Grid */
+    .flasher-grid {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 1.5rem;
+      margin-bottom: 3rem;
+    }
+
+    @media (max-width: 840px) {
+      .flasher-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    .flasher-card {
+      background: var(--click-card);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--click-border);
+      border-radius: 16px;
+      padding: 1.75rem;
+      transition: border-color 0.25s, box-shadow 0.25s;
+    }
+
+    .flasher-card:hover {
+      border-color: var(--click-border-hover);
+    }
+
+    .card-head {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 1.5rem;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .card-head h3 {
+      font-family: var(--click-font-display);
+      font-size: 1.35rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      color: #fff;
+    }
+
+    .card-head h3 svg {
+      color: var(--click-cyan);
+    }
+
+    /* Select & Inputs */
+    .control-group {
+      margin-bottom: 1.25rem;
+    }
+
+    .control-label {
+      display: block;
+      font-size: 0.82rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--click-text-secondary);
+      margin-bottom: 0.45rem;
+    }
+
+    .select-box {
+      width: 100%;
+      background: var(--click-surface);
+      color: var(--click-text);
+      border: 1px solid var(--click-border);
+      border-radius: 10px;
+      padding: 0.85rem 1rem;
+      font-size: 0.98rem;
+      font-family: var(--click-font-body);
+      font-weight: 500;
+      cursor: pointer;
+      outline: none;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .select-box:focus {
+      border-color: var(--click-cyan);
+      box-shadow: 0 0 0 3px var(--click-cyan-glow);
+    }
+
+    /* Spec Boxes */
+    .specs-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 0.65rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .spec-item {
+      background: rgba(0, 0, 0, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 0.65rem 0.5rem;
+      text-align: center;
+    }
+
+    .spec-label {
+      font-size: 0.72rem;
+      color: var(--click-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      margin-bottom: 0.2rem;
+    }
+
+    .spec-value {
+      font-family: var(--click-font-display);
+      font-size: 1.1rem;
+      font-weight: 700;
+      color: var(--click-cyan);
+    }
+
+    /* Browser Badge */
+    .browser-badge {
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      margin-bottom: 1.25rem;
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+      font-size: 0.88rem;
+    }
+
+    .browser-badge.supported {
+      background: rgba(16, 185, 129, 0.1);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: var(--click-emerald);
+    }
+
+    .browser-badge.unsupported {
+      background: rgba(245, 158, 11, 0.1);
+      border: 1px solid rgba(245, 158, 11, 0.3);
+      color: var(--click-amber);
+    }
+
+    /* Action Button */
+    esp-web-install-button {
+      --esp-tools-button-border-radius: 10px;
+      --esp-tools-button-color: #000;
+      --esp-tools-button-text-color: #fff;
+      display: block;
+      width: 100%;
+    }
+
+    .btn-flash {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      padding: 0.95rem 1.5rem;
+      border-radius: 10px;
+      font-family: var(--click-font-display);
+      font-size: 1.2rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: #07090e;
+      background: linear-gradient(135deg, #00f0ff 0%, #00b4d8 100%);
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+      transition: transform 0.2s, box-shadow 0.2s;
+    }
+
+    .btn-flash:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 0 30px rgba(0, 240, 255, 0.5);
+    }
+
+    /* Steps List */
+    .steps {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 0.85rem;
+    }
+
+    .step-row {
+      display: flex;
+      gap: 0.85rem;
+      align-items: flex-start;
+    }
+
+    .step-badge {
+      flex-shrink: 0;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      background: rgba(0, 240, 255, 0.15);
+      border: 1px solid rgba(0, 240, 255, 0.4);
+      color: var(--click-cyan);
+      font-family: var(--click-font-display);
+      font-weight: 700;
+      font-size: 0.9rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .step-detail h5 {
+      font-size: 0.92rem;
+      font-weight: 600;
+      color: #fff;
+      margin-bottom: 0.1rem;
+    }
+
+    .step-detail p {
+      font-size: 0.82rem;
+      color: var(--click-text-secondary);
+    }
+
+    /* Fallback section */
+    .fallbacks-title {
+      font-family: var(--click-font-display);
+      font-size: 1.8rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      margin-bottom: 0.4rem;
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+    }
+
+    .fallbacks-desc {
+      color: var(--click-text-secondary);
+      font-size: 0.95rem;
+      margin-bottom: 1.5rem;
+    }
+
+    .fallbacks-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .fallback-box {
+      background: var(--click-card);
+      border: 1px solid var(--click-border);
+      border-radius: 14px;
+      padding: 1.35rem;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+
+    .fallback-box h4 {
+      font-family: var(--click-font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #fff;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .fallback-box p {
+      font-size: 0.86rem;
+      color: var(--click-text-secondary);
+      margin-bottom: 0.75rem;
+    }
+
+    .code-display {
+      background: #04060a;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 8px;
+      padding: 0.65rem 0.85rem;
+      position: relative;
+      margin: 0.5rem 0 0.75rem;
+    }
+
+    .code-display pre {
+      font-family: var(--click-font-mono);
+      font-size: 0.78rem;
+      color: var(--click-cyan);
+      white-space: pre-wrap;
+      word-break: break-all;
+    }
+
+    .copy-button {
+      position: absolute;
+      top: 0.35rem;
+      right: 0.35rem;
+      background: rgba(255, 255, 255, 0.08);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      border-radius: 4px;
+      color: var(--click-text-secondary);
+      padding: 0.2rem 0.45rem;
+      font-size: 0.72rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .copy-button:hover {
+      background: var(--click-cyan);
+      color: #000;
+    }
+
+    /* Table */
+    .table-container {
+      background: var(--click-card);
+      border: 1px solid var(--click-border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-bottom: 2.5rem;
+    }
+
+    .firmware-table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    .firmware-table th {
+      background: rgba(0, 0, 0, 0.4);
+      font-family: var(--click-font-display);
+      font-size: 0.9rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+      color: var(--click-text-secondary);
+      padding: 0.85rem 1.15rem;
+      border-bottom: 1px solid var(--click-border);
+    }
+
+    .firmware-table td {
+      padding: 0.85rem 1.15rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+      font-size: 0.9rem;
+    }
+
+    .tag-badge {
+      display: inline-block;
+      padding: 0.15rem 0.55rem;
+      border-radius: 9999px;
+      font-family: var(--click-font-display);
+      font-size: 0.88rem;
+      font-weight: 700;
+      background: rgba(0, 240, 255, 0.1);
+      color: var(--click-cyan);
+      border: 1px solid rgba(0, 240, 255, 0.3);
+    }
+
+    .tag-badge.latest {
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--click-emerald);
+      border-color: rgba(16, 185, 129, 0.4);
+    }
+
+    .btn-dl {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 6px;
+      background: rgba(255, 255, 255, 0.06);
+      border: 1px solid rgba(255, 255, 255, 0.12);
+      color: #fff;
+      text-decoration: none;
+      font-size: 0.82rem;
+      font-weight: 600;
+      transition: all 0.2s;
+    }
+
+    .btn-dl:hover {
+      background: rgba(0, 240, 255, 0.15);
+      border-color: var(--click-cyan);
+      color: var(--click-cyan);
+    }
+
+    .flasher-footer {
+      text-align: center;
+      padding-top: 1.5rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.06);
+      color: var(--click-text-muted);
+      font-size: 0.82rem;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="flasher-container" id="click-flasher-root" data-base-path="/releases">
+    <!-- Header -->
+    <header class="flasher-header">
+      <div class="badge-pill">
+        <span class="pulse-dot"></span>
+        <span>CLICK.UPRAJJWAL.COM.NP / FLASH</span>
+      </div>
+      <h1 class="flasher-title">Clicker Web Flasher</h1>
+      <p class="flasher-subtitle">Official browser firmware installer for the open-source Clicker ESP32 device.</p>
+    </header>
+
+    <!-- NVS Safety Alert -->
+    <section class="nvs-safe-banner" aria-label="NVS Data Safety Guarantee">
+      <div class="nvs-icon">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+          <polyline points="9 12 11 14 15 10"></polyline>
+        </svg>
+      </div>
+      <div class="nvs-text">
+        <h4>100% NVS Data Preserved</h4>
+        <p>Updates write strictly to address <code>0x10000</code>. Your lifetime click counters, unlock flags, and milestone data in NVS (<code>0x9000</code>) are untouched.</p>
+      </div>
+    </section>
+
+    <!-- Main Flash Interface -->
+    <main class="flasher-grid">
+      <!-- Flash Card -->
+      <section class="flasher-card">
+        <div class="card-head">
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon>
+            </svg>
+            <span>Web Serial Update</span>
+          </h3>
+          <span style="font-size:0.78rem;color:var(--click-text-muted);font-family:var(--click-font-mono);">ESP32-WROOM</span>
+        </div>
+
+        <div id="flasher-browser-status" class="browser-badge supported">
+          <!-- Populated by JavaScript -->
+        </div>
+
+        <div class="control-group">
+          <label for="flasher-version-select" class="control-label">Select Firmware Release</label>
+          <select id="flasher-version-select" class="select-box" aria-label="Select Release Version">
+            <option value="v1.0.0">v1.0.0 (Latest Stable)</option>
+          </select>
+        </div>
+
+        <div class="specs-grid">
+          <div class="spec-item">
+            <div class="spec-label">Version</div>
+            <div id="spec-ver" class="spec-value">v1.0.0</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Partition Offset</div>
+            <div class="spec-value" style="font-family:var(--click-font-mono);font-size:0.92rem;">0x10000</div>
+          </div>
+          <div class="spec-item">
+            <div class="spec-label">Binary Size</div>
+            <div id="spec-size" class="spec-value">352 KB</div>
+          </div>
+        </div>
+
+        <!-- Installation Choices Explainer -->
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:0.85rem 1rem;margin-bottom:1.25rem;font-size:0.82rem;">
+          <div style="font-weight:600;color:#fff;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.4rem;">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
+            <span>Installation Options</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.35rem;color:var(--click-text-secondary);">
+            <div><strong style="color:var(--click-emerald);">Option A: Standard Update (Preserve Stats)</strong><br>Flashes application binary at offset 0x10000. Preserves all stored click counts and local settings in NVS.</div>
+            <div><strong style="color:var(--click-amber);">Option B: Factory Reset (Clean Install)</strong><br>Performs full chip erase and writes complete image at offset 0x0. Resets device memory to factory state.</div>
+          </div>
+        </div>
+
+        <!-- Serial Port Advisory -->
+        <div style="background:rgba(0, 240, 255, 0.05);border:1px solid rgba(0, 240, 255, 0.25);border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1.25rem;font-size:0.82rem;color:var(--click-text-secondary);">
+          <strong style="color:var(--click-cyan);">Important:</strong> Close VS Code's <strong>Serial Monitor</strong> or active terminals before clicking below to avoid COM port locking.
+        </div>
+
+        <!-- ESP Web Tools Install Button Custom Element -->
+        <div>
+          <esp-web-install-button id="flasher-install-button" manifest="manifest.json" baud-rate="115200">
+            <button slot="activate" class="btn-flash" id="btn-flash-activate">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span>Connect & Flash Device</span>
+            </button>
+            <div slot="unsupported" style="padding:0.75rem;background:rgba(245,158,11,0.1);border-radius:8px;color:var(--click-amber);font-size:0.85rem;text-align:center;">
+              Web Serial is not supported on this browser. Please open in Chrome / Edge or use manual options below.
+            </div>
+            <div slot="not-allowed" style="padding:0.75rem;background:rgba(244,63,94,0.1);border-radius:8px;color:#f43f5e;font-size:0.85rem;text-align:center;">
+              Web Serial requires HTTPS or localhost.
+            </div>
+          </esp-web-install-button>
+        </div>
+      </section>
+
+      <!-- Connection Guide -->
+      <aside class="flasher-card">
+        <div class="card-head">
+          <h3>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="16" x2="12" y2="12"></line>
+              <line x1="12" y1="8" x2="12.01" y2="8"></line>
+            </svg>
+            <span>Flashing Instructions</span>
+          </h3>
+          <span style="font-size:0.78rem;color:var(--click-text-muted);font-family:var(--click-font-mono);">HOW-TO</span>
+        </div>
+
+        <ul class="steps">
+          <li class="step-row">
+            <div class="step-badge">1</div>
+            <div class="step-detail">
+              <h5>Plug in ESP32 via USB</h5>
+              <p>Connect your Clicker to your computer with a standard data USB cable.</p>
+            </div>
+          </li>
+          <li class="step-row">
+            <div class="step-badge">2</div>
+            <div class="step-detail">
+              <h5>Click "Connect & Flash Device"</h5>
+              <p>Select your ESP32's COM / USB Serial port from the browser prompt.</p>
+            </div>
+          </li>
+          <li class="step-row">
+            <div class="step-badge">3</div>
+            <div class="step-detail">
+              <h5>Complete & Restart</h5>
+              <p>The flasher writes to <code>0x10000</code>. Your device reboots with full click history intact.</p>
+            </div>
+          </li>
+        </ul>
+
+        <div style="margin-top:1.25rem;padding:0.75rem;border-radius:8px;background:rgba(0,240,255,0.05);border:1px solid rgba(0,240,255,0.2);font-size:0.8rem;color:var(--click-text-secondary);">
+          <strong style="color:var(--click-cyan);">Tip:</strong> If connection times out, press and hold the <strong>BOOT</strong> button on your board while clicking Connect.
+        </div>
+      </aside>
+    </main>
+
+    <!-- Safari / Firefox & Manual Options -->
+    <section style="margin-top:1.5rem;">
+      <h2 class="fallbacks-title">
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+          <line x1="8" y1="21" x2="16" y2="21"></line>
+          <line x1="12" y1="17" x2="12" y2="21"></line>
+        </svg>
+        <span>Manual & Browser Fallbacks</span>
+      </h2>
+      <!-- Fallbacks & Alternative Methods -->
+    <section class="manual-section">
+      <h3 style="font-family:var(--click-font-display);font-size:1.35rem;font-weight:700;margin-bottom:0.4rem;color:#fff;">
+        Alternative Installation & Manual Options
+      </h3>
+      <p style="font-size:0.88rem;color:var(--click-text-secondary);margin-bottom:1.25rem;">
+        For browsers without Web Serial (Firefox, Safari, iOS), use one of the supported methods below:
+      </p>
+
+      <!-- Third-Party Notice Box -->
+      <div style="background:rgba(248,81,73,0.06);border:1px solid rgba(248,81,73,0.3);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:1.5rem;font-size:0.84rem;line-height:1.5;color:var(--click-text-secondary);">
+        <strong style="color:#f85149;">Notice:</strong> Flashing via external utilities (e.g., esphome.io) or running <code>esptool.py erase_flash</code> will erase the <code>0x9000</code> NVS partition and clear device memory. Use this installer or <code>flash_device.bat</code> to maintain local stats.
+      </div>
+
+      <div class="fallback-grid">
+        <div class="fallback-box">
+          <div>
+            <h4>Option 1: Switch Browser (Safe)</h4>
+            <p>Open this page in <strong>Google Chrome</strong>, <strong>Microsoft Edge</strong>, or <strong>Brave</strong> for data-preserving web updates.</p>
+          </div>
+          <span style="font-size:0.75rem;color:var(--click-emerald);">Keeps All Click Stats</span>
+        </div>
+
+        <div class="fallback-box">
+          <div>
+            <h4>Option 2: web.esphome.io (Wipes Data)</h4>
+            <p><strong style="color:var(--click-rose);">Notice:</strong> Erases all user stats. Flash <code>factory_firmware.bin</code> (Offset <code>0x0</code>):</p>
+          </div>
+          <a href="https://web.esphome.io" target="_blank" rel="noopener" class="btn-download" style="color:var(--click-rose);border-color:rgba(244,63,94,0.3);">Open web.esphome.io (Full Erase) &rarr;</a>
+        </div>
+
+        <div class="fallback-box">
+          <div>
+            <h4>Option 3: esptool.py (CLI)</h4>
+            <p>Flash the merged factory image directly to offset <strong>0x0</strong>:</p>
+            <div class="code-display">
+              <button class="copy-button" data-copy-target="cli-cmd">Copy</button>
+              <pre id="cli-cmd">esptool.py --chip esp32 --port COMx write_flash 0x0 factory_firmware.bin</pre>
+            </div>
+          </div>
+          <span style="font-size:0.75rem;color:var(--click-emerald);">Or run <code>flash_device.bat</code> in the repository.</span>
+        </div>
+      </div>
+
+      <!-- Binary Differences Callout -->
+      <div style="background:rgba(0,240,255,0.04);border:1px solid rgba(0,240,255,0.2);border-radius:12px;padding:0.9rem 1.15rem;margin-bottom:1.5rem;font-size:0.84rem;">
+        <h4 style="color:var(--click-cyan);font-family:var(--click-font-display);font-size:1.05rem;font-weight:700;margin-bottom:0.35rem;">
+          Manual Binary Files & Data Safety Notice
+        </h4>
+        <p style="color:var(--click-text-secondary);margin-bottom:0.4rem;">
+          &bull; <strong style="color:var(--click-emerald);">factory_firmware.bin (Offset 0x0):</strong> All-in-one image with bootloader and partitions for web.esphome.io or factory resets.<br>
+          &bull; <strong style="color:var(--click-cyan);">firmware.bin (Offset 0x10000):</strong> App-only update that preserves all lifetime click counters and milestone stats in NVS (0x9000).<br>
+          &bull; <strong style="color:#fff;">Desktop CLI:</strong> Use <code>.\flash_device.bat</code> to interactively choose whether to keep stats or erase.
+        </p>
+      </div>
+
+      <!-- Downloads Table -->
+      <h3 style="font-family:var(--click-font-display);font-size:1.3rem;font-weight:700;margin-bottom:0.75rem;color:#fff;">
+        Recent Firmware Binaries (Last 5 Releases)
+      </h3>
+      <div class="table-container">
+        <table class="firmware-table">
+          <thead>
+            <tr>
+              <th>Version Tag</th>
+              <th>Offset</th>
+              <th>Size</th>
+              <th style="text-align:right;">Binary Download</th>
+            </tr>
+          </thead>
+          <tbody id="flasher-table-body">
+            <!-- Populated by JS -->
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="flasher-footer">
+      <p>Clicker ESP32 Project &bull; <a href="https://click.uprajjwal.com.np" style="color:var(--click-cyan);text-decoration:none;">click.uprajjwal.com.np</a> &bull; Powered by ESP Web Tools</p>
+    </footer>
+  </div>
+
+  <script>
+    (function() {
+      const DEFAULT_VERSIONS = [
+        { tag: "v1.0.0", version: "1.0.0", manifest: "../releases/v1.0.0/manifest.json", bin: "../releases/v1.0.0/firmware.bin", size: 360512, is_latest: true }
+      ];
+
+      let releaseList = DEFAULT_VERSIONS;
+      let pathPrefix = '../releases/';
+
+      async function init() {
+        checkSerial();
+        await detectPathPrefix();
+        await loadRegistry();
+        populateSelect();
+        renderTable();
+        initCopy();
+      }
+
+      function checkSerial() {
+        const badge = document.getElementById('flasher-browser-status');
+        const hasSerial = 'serial' in navigator;
+        const isSecure = window.isSecureContext || window.location.protocol === 'https:' || window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1';
+        const activateBtn = document.getElementById('btn-flash-activate');
+
+        if (hasSerial && isSecure) {
+          badge.className = 'browser-badge supported';
+          badge.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            <span><strong>Web Serial Ready:</strong> Plug in your ESP32 and click below.</span>
+          `;
+        } else if (!hasSerial) {
+          badge.className = 'browser-badge unsupported';
+          badge.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="12" cy="12" r="10"></circle>
+              <line x1="12" y1="8" x2="12" y2="12"></line>
+              <line x1="12" y1="16" x2="12.01" y2="16"></line>
+            </svg>
+            <span>Web flashing requires a Chromium-based browser (Chrome, Edge, Brave, or Opera) — Firefox and Safari don't support this. Please switch browsers, or use the Desktop CLI / flash_device.bat option instead.</span>
+          `;
+          if (activateBtn) {
+            activateBtn.disabled = true;
+            activateBtn.style.opacity = '0.5';
+            activateBtn.style.cursor = 'not-allowed';
+          }
+        } else {
+          badge.className = 'browser-badge unsupported';
+          badge.innerHTML = `<span><strong>HTTPS Required:</strong> Web Serial requires HTTPS or localhost.</span>`;
+          if (activateBtn) {
+            activateBtn.disabled = true;
+            activateBtn.style.opacity = '0.5';
+            activateBtn.style.cursor = 'not-allowed';
+          }
+        }
+      }
+
+      async function detectPathPrefix() {
+        const candidates = [
+          '../releases/v1.0.4/manifest.json',
+          'releases/v1.0.4/manifest.json',
+          './releases/v1.0.4/manifest.json',
+          '/releases/v1.0.4/manifest.json'
+        ];
+        for (const c of candidates) {
+          try {
+            const res = await fetch(c, { method: 'HEAD' });
+            if (res.ok) {
+              if (c.startsWith('../releases/')) pathPrefix = '../releases/';
+              else if (c.startsWith('releases/')) pathPrefix = 'releases/';
+              else if (c.startsWith('./releases/')) pathPrefix = './releases/';
+              else if (c.startsWith('/releases/')) pathPrefix = '/releases/';
+              return;
+            }
+          } catch (e) {}
+        }
+      }
+
+      async function loadRegistry() {
+        const fetchUrls = [
+          'versions.json',
+          `${pathPrefix}versions.json`,
+          '../releases/versions.json',
+          './releases/versions.json'
+        ];
+
+        for (const url of fetchUrls) {
+          try {
+            const res = await fetch(url);
+            if (res.ok) {
+              const data = await res.json();
+              if (data.releases && data.releases.length > 0) {
+                releaseList = data.releases.map(rel => {
+                  const tag = rel.tag || `v${rel.version}`;
+                  return {
+                    ...rel,
+                    tag: tag,
+                    manifest: `${pathPrefix}${tag}/manifest.json`,
+                    bin: `${pathPrefix}${tag}/firmware.bin`
+                  };
+                });
+                return;
+              }
+            }
+          } catch (e) {}
+        }
+
+        releaseList = DEFAULT_VERSIONS.map(rel => ({
+          ...rel,
+          manifest: `${pathPrefix}${rel.tag}/manifest.json`,
+          bin: `${pathPrefix}${rel.tag}/firmware.bin`
+        }));
+      }
+
+      function populateSelect() {
+        const select = document.getElementById('flasher-version-select');
+        select.innerHTML = '';
+
+        releaseList.forEach(rel => {
+          const opt = document.createElement('option');
+          opt.value = rel.tag;
+          opt.textContent = `${rel.tag} ${rel.is_latest ? '(Latest)' : ''}`;
+          select.appendChild(opt);
+        });
+
+        select.addEventListener('change', (e) => onVersionSelected(e.target.value));
+        if (releaseList.length > 0) {
+          onVersionSelected(releaseList[0].tag);
+        }
+      }
+
+      function onVersionSelected(tag) {
+        const rel = releaseList.find(r => r.tag === tag) || releaseList[0];
+        document.getElementById('spec-ver').textContent = rel.tag;
+        document.getElementById('spec-size').textContent = rel.size ? `${Math.round(rel.size / 1024)} KB` : '~360 KB';
+
+        const manifestUrl = new URL(rel.manifest, window.location.href).href;
+        const btn = document.getElementById('flasher-install-button');
+        if (btn) {
+          btn.setAttribute('manifest', manifestUrl);
+          btn.setAttribute('baud-rate', '115200');
+          btn.manifest = manifestUrl;
+          btn.baudRate = 115200;
+        }
+
+        const cliCmd = document.getElementById('cli-cmd');
+        if (cliCmd) {
+          cliCmd.textContent = `esptool.py --chip esp32 --port COMx write_flash 0x10000 releases/${rel.tag}/firmware.bin`;
+        }
+      }
+
+      function renderTable() {
+        const tbody = document.getElementById('flasher-table-body');
+        if (!tbody) return;
+
+        tbody.innerHTML = releaseList.map(rel => `
+          <tr>
+            <td>
+              <span class="tag-badge ${rel.is_latest ? 'latest' : ''}">${rel.tag}</span>
+              ${rel.is_latest ? '<strong style="color:var(--click-emerald);margin-left:0.4rem;font-size:0.78rem;">LATEST</strong>' : ''}
+            </td>
+            <td style="font-family:var(--click-font-mono);color:var(--click-text-secondary);font-size:0.85rem;">0x10000</td>
+            <td style="color:var(--click-text-muted);font-size:0.85rem;">${rel.size ? `${Math.round(rel.size / 1024)} KB` : '~360 KB'}</td>
+            <td style="text-align:right;">
+              <a href="${rel.bin}" download="clicker-${rel.tag}-firmware.bin" class="btn-dl">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>Download .bin</span>
+              </a>
+            </td>
+          </tr>
+        `).join('');
+      }
+
+      function initCopy() {
+        document.querySelectorAll('.copy-button').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const targetId = btn.getAttribute('data-copy-target');
+            const targetEl = document.getElementById(targetId);
+            if (targetEl) {
+              navigator.clipboard.writeText(targetEl.textContent.trim()).then(() => {
+                const old = btn.textContent;
+                btn.textContent = 'Copied!';
+                btn.style.background = 'var(--click-emerald)';
+                btn.style.color = '#000';
+                setTimeout(() => {
+                  btn.textContent = old;
+                  btn.style.background = '';
+                  btn.style.color = '';
+                }, 2000);
+              });
+            }
+          });
+        });
+      }
+
+      document.addEventListener('DOMContentLoaded', init);
+    })();
+  </script>
+</body>
+</html>
