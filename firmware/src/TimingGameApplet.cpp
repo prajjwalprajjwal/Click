@@ -31,9 +31,17 @@ void TimingGameApplet::formatDeviation4(int64_t diffMicros, char* buffer, size_t
 }
 
 void TimingGameApplet::drawIdle() const {
+#ifdef GENERATED_TIMINGGAMEAPPLET_START_H
+    // RENDER USER CUSTOM START SCREEN (128x64)
+    display.drawBitmap(0, 0, TimingGameApplet_start_bmp,
+                       TIMINGGAMEAPPLET_START_WIDTH, TIMINGGAMEAPPLET_START_HEIGHT,
+                       SSD1306_WHITE);
+#else
+    // Fallback: Rajdhani text layout
     ThemeFonts::drawCentered(&Rajdhani24pt7b, "JUST TEN", 16);
     ThemeFonts::drawCentered(&Rajdhani12pt7b, "Hold the button", 44);
     ThemeFonts::drawCentered(&Rajdhani12pt7b, "for 10 seconds", 56);
+#endif
 }
 
 void TimingGameApplet::drawCounting(uint32_t nowMs) const {
@@ -51,15 +59,30 @@ void TimingGameApplet::drawCounting(uint32_t nowMs) const {
 
 void TimingGameApplet::drawResult() const {
     char line[24];
-
-    // Clicked duration in big font
     formatSeconds4(holdDurationUs, line, sizeof(line));
-    ThemeFonts::drawCenteredBestFit(&Rajdhani32pt7b, &Rajdhani24pt7b, line, 20, 124);
 
-    // Deviation in bigger 18pt font pushed towards the bottom
     const int64_t targetUs = 10000000LL;
-    formatDeviation4(static_cast<int64_t>(holdDurationUs) - targetUs, line, sizeof(line));
-    ThemeFonts::drawCenteredBestFit(&Rajdhani18pt7b, &Rajdhani12pt7b, line, 52, 124);
+    char devLine[24];
+    formatDeviation4(static_cast<int64_t>(holdDurationUs) - targetUs, devLine, sizeof(devLine));
+
+#ifdef GENERATED_TIMINGGAMEAPPLET_END_H
+    // RENDER USER CUSTOM END SCREEN (128x64)
+    display.drawBitmap(0, 0, TimingGameApplet_end_bmp,
+                       TIMINGGAMEAPPLET_END_WIDTH, TIMINGGAMEAPPLET_END_HEIGHT,
+                       SSD1306_WHITE);
+
+    // Overlay dynamic score values on top of custom design
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(26, 28);
+    display.print(line);
+    display.setCursor(26, 40);
+    display.print(devLine);
+#else
+    // Fallback: Rajdhani text layout
+    ThemeFonts::drawCenteredBestFit(&Rajdhani32pt7b, &Rajdhani24pt7b, line, 20, 124);
+    ThemeFonts::drawCenteredBestFit(&Rajdhani18pt7b, &Rajdhani12pt7b, devLine, 52, 124);
+#endif
 }
 
 void TimingGameApplet::update() {
