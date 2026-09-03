@@ -83,7 +83,7 @@ void onBothButtonsHeld() {
 
 void setup() {
     Serial.begin(115200);
-    delay(100);
+    delay(500); // let the oled init properly
 
     Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
 
