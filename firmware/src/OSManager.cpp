@@ -48,18 +48,20 @@ void OSManager::checkSleepConditions() {
     uint32_t idleTime = now - lastActivityTime;
     
     if (sleepState == AWAKE) {
-        if (currentApplet != nullptr && currentApplet != applets[0] && idleTime >= lightSleepTimeout) {
-            Serial.println("[OSManager] Returning to default home/snowfall screen after 20s idle");
-            switchToApplet(0);
+        // If inactive for lightSleepTimeout (20s) and not already on screensaver:
+        if (screensaverApplet != nullptr && currentApplet != screensaverApplet && idleTime >= lightSleepTimeout) {
+            Serial.println("[OSManager] Inactivity detected: switching to snowfall screensaver");
+            if (currentApplet) {
+                currentApplet->cleanup();
+            }
+            currentApplet = screensaverApplet;
+            currentApplet->init();
             return;
         }
 
         if (idleTime >= deepSleepTimeout) {
             Serial.println("[OSManager] Entering DEEP SLEEP (45s idle)");
             enterDeepSleep();
-        } else if (idleTime >= lightSleepTimeout) {
-            Serial.println("[OSManager] Entering LIGHT SLEEP (20s idle)");
-            enterLightSleep();
         }
     }
 }
@@ -154,7 +156,8 @@ void OSManager::switchToApplet(uint8_t index) {
 
 void OSManager::switchToNextApplet() {
     if (appletCount == 0) return;
-    // Main applets cycle only through index 0, 1, 2 (excluding isolated Settings applet at index 3)
+    // Main applets cycle through indices 0..2 (Clicker, Just Ten, Flappy Bird)
+    // Settings applet at index 3 is reached via Hold MODE
     uint8_t mainAppletCount = (appletCount > 3) ? 3 : appletCount;
     uint8_t nextIndex = (currentAppletIndex + 1) % mainAppletCount;
     switchToApplet(nextIndex);

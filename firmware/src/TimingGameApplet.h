@@ -5,6 +5,11 @@
 #include <stddef.h>
 #include "Applet.h"
 
+// Automatically includes pre-converted user PNG screen assets
+#if __has_include("generated_assets/all_assets.h")
+  #include "generated_assets/all_assets.h"
+#endif
+
 class TimingGameApplet : public Applet {
 private:
     enum State {

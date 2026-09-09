@@ -1,27 +1,70 @@
-# Celebration screens
+# Click — Screen Asset Directory
 
-Drop **128×64-friendly PNG** images here, then convert them for the OLED:
+Drop 1-bit monochrome PNG files here.  
+`convert_assets.py` will auto-convert them to C PROGMEM headers on every build.
 
-```bash
-pip install pillow
-python tools/png_to_oled.py
+---
+
+## Naming Conventions
+
+### A — Clicker Milestone Images
+| File | Displayed at |
+|------|-------------|
+| `1.png` | 1st click |
+| `5.png` | 5th click |
+| `10.png` | 10th click |
+| `50.png` | 50th click |
+| `100.png` | 100th click |
+
+Generated symbol: `img_<N>_bmp`  (e.g. `img_10_bmp`, `IMG_10_WIDTH`, `IMG_10_HEIGHT`)
+
+---
+
+### B — App Start Screens  *(128×64 px, 1-bit)*
+| File | Used by |
+|------|---------|
+| `flappybird_start.png` | Flappy Bird idle/start state |
+| `justten_start.png` | Just 10 Seconds idle/start state |
+| `clicker_start.png` | Clicker boot screen |
+
+Generated symbol: `<appname>_start_bmp`
+
+---
+
+### C — App End / Game-Over Screens  *(128×64 px, 1-bit)*
+| File | Used by |
+|------|---------|
+| `flappybird_end.png` | Flappy Bird game-over screen |
+| `justten_end.png` | Just 10 Seconds result screen |
+
+Generated symbol: `<appname>_end_bmp`
+
+> If no `_end.png` exists for an applet, the applet falls back to its  
+> coded game-over UI — no image is shown.
+
+---
+
+### D — Sprites & Icons  *(arbitrary size)*
+| File | Used by |
+|------|---------|
+| `flappybird_icon.png` | Flappy Bird player sprite |
+
+Generated symbol: `<appname>_<name>_bmp`
+
+---
+
+## Using Generated Assets in Applets
+
+```cpp
+#include "all_assets.h"  // single include — pulls in everything
+
+// Example: draw a start screen
+display.drawBitmap(0, 0, flappybird_start_bmp,
+                   FLAPPYBIRD_START_WIDTH, FLAPPYBIRD_START_HEIGHT,
+                   SSD1306_WHITE);
+
+// Example: draw a milestone image (click count 10)
+display.drawBitmap(0, 0, img_10_bmp,
+                   IMG_10_WIDTH, IMG_10_HEIGHT,
+                   SSD1306_WHITE);
 ```
-
-## Naming
-
-Use the click count in the filename so the firmware knows when to show it:
-
-- `100.png` → celebration at **100** clicks
-- `celebrate_5000.png` → celebration at **5000** clicks
-- `100000.png` → celebration at **100000** clicks
-
-## Output
-
-Converted bitmaps are written to `include/screens/generated/` and registered automatically.
-
-Rebuild and flash after converting.
-
-## Built-in screens
-
-Run `python tools/png_to_oled.py --defaults` to regenerate the default CLIX-inspired art for:
-10, 100, 5000, 10000, 50000, 100000 clicks.

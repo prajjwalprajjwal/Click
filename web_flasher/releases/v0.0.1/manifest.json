@@ -1,6 +1,6 @@
 {
   "name": "Clicker Device Firmware",
-  "version": "1.0.1",
+  "version": "0.0.1",
   "improv": false,
   "new_install_prompt_erase": true,
   "builds": [
