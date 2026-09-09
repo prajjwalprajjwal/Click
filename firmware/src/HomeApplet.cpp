@@ -100,28 +100,7 @@ void HomeApplet::drawPatternSymbol(int16_t cx, int16_t cy, uint8_t scale) const 
 }
 
 void HomeApplet::drawUnlockElements() {
-    if (unlockFlags & 0x01) {
-        display.drawPixel(4, 4, SSD1306_WHITE);
-    }
-    if (unlockFlags & 0x02) {
-        display.drawPixel(123, 4, SSD1306_WHITE);
-        display.drawPixel(120, 8, SSD1306_WHITE);
-    }
-    if (unlockFlags & 0x04) {
-        drawPatternSymbol(118, 52, 1);
-    }
-    if (unlockFlags & 0x10) {
-        drawPatternSymbol(10, 52, 2);
-    }
-    if (unlockFlags & 0x20) {
-        int16_t scanY = static_cast<int16_t>((millis() / 40) % 64);
-        display.drawFastHLine(0, scanY, SCREEN_W, SSD1306_WHITE);
-    }
-    if (unlockFlags & 0x40) {
-        uint8_t pulse = static_cast<uint8_t>((millis() / 200) % 4);
-        display.drawPixel(64 + pulse, 62 - pulse, SSD1306_WHITE);
-        display.drawPixel(63 - pulse, 61, SSD1306_WHITE);
-    }
+    // Disabled: static unlock markers appear as frozen/dead pixels on the OLED display
 }
 
 void HomeApplet::init() {
