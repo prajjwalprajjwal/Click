@@ -10,6 +10,8 @@
 #define CLICKER_PERSIST_MAX_INTERVAL_MS 2000
 
 #define CLICKER_NVS_NAMESPACE "clicker"
+#define CLICKER_NVS_KEY_COUNT_STR "cnt_str"
+#define CLICKER_NVS_KEY_TERRAIN_OFFSET "terrain_off"
 #define CLICKER_NVS_KEY_LIFETIME_LO "lifetime_lo"
 #define CLICKER_NVS_KEY_LIFETIME_HI "lifetime_hi"
 #define CLICKER_NVS_KEY_COMPLETED_CYCLES "completed_cycles"

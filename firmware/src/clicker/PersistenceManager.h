@@ -16,6 +16,7 @@ private:
     uint64_t lastCycleCompleteLifetime = 0;
     uint32_t lastClickTime = 0;
     uint32_t lastPersistTime = 0;
+    uint32_t terrainOffset = 0;
 
     bool save(const ClickCounter& counter, const uint32_t milestoneFlags[MILESTONE_FLAG_WORDS]);
 
@@ -30,6 +31,14 @@ public:
     void clearPeriodicCounter();
 
     bool isDirty() const { return dirty; }
+
+    uint32_t getTerrainOffset() const { return terrainOffset; }
+    void setTerrainOffset(uint32_t off) {
+        if (terrainOffset != off) {
+            terrainOffset = off;
+            dirty = true;
+        }
+    }
 
     uint32_t getHomeUnlockFlags() const { return homeUnlockFlags; }
     void setHomeUnlockFlags(uint32_t flags) {

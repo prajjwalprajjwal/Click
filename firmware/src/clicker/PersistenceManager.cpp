@@ -1,6 +1,7 @@
 #include "clicker/PersistenceManager.h"
 #include "clicker/ClickerConfig.h"
 #include <cstring>
+#include <cstdio>
 
 static uint64_t packLifetime(uint32_t lo, uint32_t hi) {
     return (static_cast<uint64_t>(hi) << 32) | static_cast<uint64_t>(lo);
@@ -16,11 +17,12 @@ bool PersistenceManager::begin() {
 }
 
 bool PersistenceManager::load(ClickCounter& counter, uint32_t milestoneFlags[MILESTONE_FLAG_WORDS]) {
-    if (!prefs.isKey(CLICKER_NVS_KEY_LIFETIME_LO)) {
+    if (!prefs.isKey(CLICKER_NVS_KEY_COUNT_STR) && !prefs.isKey(CLICKER_NVS_KEY_LIFETIME_LO)) {
         counter.reset();
         memset(milestoneFlags, 0, MILESTONE_FLAG_WORDS * sizeof(uint32_t));
         homeUnlockFlags = 0;
         lastCycleCompleteLifetime = 0;
+        terrainOffset = 0;
         dirty = false;
         clicksSincePersist = 0;
         lastClickTime = 0;
@@ -28,12 +30,19 @@ bool PersistenceManager::load(ClickCounter& counter, uint32_t milestoneFlags[MIL
         return false;
     }
 
-    uint32_t lo = prefs.getUInt(CLICKER_NVS_KEY_LIFETIME_LO, 0);
-    uint32_t hi = prefs.getUInt(CLICKER_NVS_KEY_LIFETIME_HI, 0);
-    uint64_t lifetime = packLifetime(lo, hi);
-    uint32_t completed = prefs.getUInt(CLICKER_NVS_KEY_COMPLETED_CYCLES, 0);
+    if (prefs.isKey(CLICKER_NVS_KEY_COUNT_STR)) {
+        String savedStr = prefs.getString(CLICKER_NVS_KEY_COUNT_STR, "0");
+        counter.setString(savedStr.c_str());
+    } else {
+        // Fallback to legacy uint64 format
+        uint32_t lo = prefs.getUInt(CLICKER_NVS_KEY_LIFETIME_LO, 0);
+        uint32_t hi = prefs.getUInt(CLICKER_NVS_KEY_LIFETIME_HI, 0);
+        uint64_t lifetime = packLifetime(lo, hi);
+        uint32_t completed = prefs.getUInt(CLICKER_NVS_KEY_COMPLETED_CYCLES, 0);
+        counter.load(lifetime, completed);
+    }
 
-    counter.load(lifetime, completed);
+    terrainOffset = prefs.getUInt(CLICKER_NVS_KEY_TERRAIN_OFFSET, 0);
 
     size_t expectedSize = MILESTONE_FLAG_WORDS * sizeof(uint32_t);
     size_t readSize = prefs.getBytesLength(CLICKER_NVS_KEY_MILESTONES);
@@ -45,8 +54,8 @@ bool PersistenceManager::load(ClickCounter& counter, uint32_t milestoneFlags[MIL
 
     homeUnlockFlags = prefs.getUInt(CLICKER_NVS_KEY_HOME_UNLOCKS, 0);
 
-    lo = prefs.getUInt(CLICKER_NVS_KEY_LAST_CYCLE, 0);
-    hi = prefs.getUInt(CLICKER_NVS_KEY_LAST_CYCLE_HI, 0);
+    uint32_t lo = prefs.getUInt(CLICKER_NVS_KEY_LAST_CYCLE, 0);
+    uint32_t hi = prefs.getUInt(CLICKER_NVS_KEY_LAST_CYCLE_HI, 0);
     lastCycleCompleteLifetime = packLifetime(lo, hi);
 
     dirty = false;
@@ -57,16 +66,25 @@ bool PersistenceManager::load(ClickCounter& counter, uint32_t milestoneFlags[MIL
 }
 
 bool PersistenceManager::save(const ClickCounter& counter, const uint32_t milestoneFlags[MILESTONE_FLAG_WORDS]) {
-    uint32_t lo = 0;
-    uint32_t hi = 0;
-    unpackLifetime(counter.getLifetimeClicks(), lo, hi);
+    prefs.putString(CLICKER_NVS_KEY_COUNT_STR, counter.getString());
+    prefs.putUInt(CLICKER_NVS_KEY_TERRAIN_OFFSET, terrainOffset);
 
-    prefs.putUInt(CLICKER_NVS_KEY_LIFETIME_LO, lo);
-    prefs.putUInt(CLICKER_NVS_KEY_LIFETIME_HI, hi);
-    prefs.putUInt(CLICKER_NVS_KEY_COMPLETED_CYCLES, counter.getCompletedCycles());
+    // Save legacy values for backwards compatibility if within range
+    uint64_t lifetime = counter.getLifetimeClicks();
+    if (lifetime != UINT64_MAX) {
+        uint32_t lo = 0;
+        uint32_t hi = 0;
+        unpackLifetime(lifetime, lo, hi);
+        prefs.putUInt(CLICKER_NVS_KEY_LIFETIME_LO, lo);
+        prefs.putUInt(CLICKER_NVS_KEY_LIFETIME_HI, hi);
+        prefs.putUInt(CLICKER_NVS_KEY_COMPLETED_CYCLES, counter.getCompletedCycles());
+    }
+
     prefs.putBytes(CLICKER_NVS_KEY_MILESTONES, milestoneFlags, MILESTONE_FLAG_WORDS * sizeof(uint32_t));
     prefs.putUInt(CLICKER_NVS_KEY_HOME_UNLOCKS, homeUnlockFlags);
 
+    uint32_t lo = 0;
+    uint32_t hi = 0;
     unpackLifetime(lastCycleCompleteLifetime, lo, hi);
     prefs.putUInt(CLICKER_NVS_KEY_LAST_CYCLE, lo);
     prefs.putUInt(CLICKER_NVS_KEY_LAST_CYCLE_HI, hi);
@@ -74,6 +92,9 @@ bool PersistenceManager::save(const ClickCounter& counter, const uint32_t milest
     dirty = false;
     clicksSincePersist = 0;
     lastPersistTime = millis();
+
+    Serial.print("[SISYPHUS] saved = ");
+    Serial.println(counter.getString());
     return true;
 }
 

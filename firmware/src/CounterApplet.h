@@ -5,31 +5,47 @@
 #include "Applet.h"
 #include "clicker/ClickCounter.h"
 #include "clicker/PersistenceManager.h"
-#include "clicker/MilestoneManager.h"
 #include "clicker/CounterRenderer.h"
-#include "clicker/MilestonePresenter.h"
+
+enum class SisyphusAnimMode : uint8_t {
+    IDLE_WALKING,
+    PUSHING
+};
 
 class CounterApplet : public Applet {
 private:
     ClickCounter counter;
     PersistenceManager persistence;
-    MilestoneManager milestones;
     CounterRenderer renderer;
-    MilestonePresenter presenter;
 
     uint32_t milestoneFlags[MILESTONE_FLAG_WORDS] = {0};
     bool storageReady = false;
 
+    // Animation & Gameplay State (stored during session)
+    SisyphusAnimMode animMode = SisyphusAnimMode::IDLE_WALKING;
+    uint8_t pushFrame = 0;
+    uint8_t boulderRotPhase = 0;
+    uint8_t pendingPushes = 0;
+
+    int16_t climbProgress = 0; // Persistent uphill position during session
+    float worldProgress = 0.0f;
+
+    uint32_t lastFrameTime = 0;
+    bool frameDirty = true;
+
+    // Paced Frame Timing (25 FPS push / 8 FPS walk)
+    static const uint32_t PUSH_FRAME_INTERVAL_MS = 40;  // 25 FPS
+    static const uint32_t WALK_FRAME_INTERVAL_MS = 125; // 8 FPS
+
     void loadState();
     void persistNow();
-    void persistIfNeeded(bool forceMilestone);
+    void persistIfNeeded(bool force);
     void handleClick();
-    void processPendingEvents();
-    void handleMilestoneEvent(const MilestoneEventInfo& info);
     void resetAll();
+    void updateAnimation(uint32_t now);
 
 #if CLICKER_DEBUG
-    void debugSimulateCount(uint64_t target);
+    void debugSimulateCount(const char* target);
     void processDebugSerial();
 #endif
 
