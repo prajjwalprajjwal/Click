@@ -60,10 +60,10 @@
           "hatch_smoothing_level": 0,
           "hatch_smoothing_value": 0.1,
           "hatch_thickness": 1.0,
-          "min_clearance": 0.15,
+          "min_clearance": 0.3,
           "min_island_area": 10.0,
-          "min_thickness": 0.15,
-          "pad_connection": 2,
+          "min_thickness": 0.3,
+          "pad_connection": 1,
           "remove_islands": 0,
           "thermal_relief_gap": 0.5,
           "thermal_relief_spoke_width": 0.5
@@ -150,11 +150,11 @@
         "min_connection": 0.0,
         "min_copper_edge_clearance": 0.2,
         "min_groove_width": 0.0,
-        "min_hole_clearance": 0.25,
+        "min_hole_clearance": 0.15,
         "min_hole_to_hole": 0.25,
         "min_microvia_diameter": 0.2,
         "min_microvia_drill": 0.1,
-        "min_resolved_spokes": 2,
+        "min_resolved_spokes": 1,
         "min_silk_clearance": 0.0,
         "min_text_height": 0.8,
         "min_text_thickness": 0.08,
@@ -167,9 +167,9 @@
       },
       "teardrop_options": [
         {
-          "td_onpthpad": true,
+          "td_onpthpad": false,
           "td_onroundshapesonly": false,
-          "td_onsmdpad": true,
+          "td_onsmdpad": false,
           "td_ontrackend": false,
           "td_onvia": true
         }
@@ -723,7 +723,7 @@
         "uuid": "1f4d5d38-0da1-4bc2-98a1-b27a96eee6fa"
       }
     ],
-    "used_designators": "Q1,D1-4,#PWR1-46,#PWR48,#PWR65,#PWR70,#PWR74,#PWR81,#PWR96-104,Y1-2,S1-2,USBDEV1,BT1,R1-12,R23,R29,R49-55,RESET1,J1-5,U1-5,U14,C2-3,C5-32,C34-42,SW1,L1-3,TP1-6,#FLG1-5",
+    "used_designators": "H1,#PWR1-46,#PWR48,#PWR65,#PWR70,#PWR74,#PWR81,#PWR96-104,Y1-2,C2-3,C5-32,C34-42,BT1,S1-2,SW1,J1-5,RESET1,#FLG1-5,TP1-6,USBDEV1,R1-12,R23,R29,R49-55,L1-3,Q1,U1-5,U14,D1-4",
     "variants": []
   },
   "sheets": [
