@@ -62,39 +62,69 @@ bool PersistenceManager::load(ClickCounter& counter, uint32_t milestoneFlags[MIL
     clicksSincePersist = 0;
     lastClickTime = 0;
     lastPersistTime = millis();
+
+    // Cache initial saved state to deduplicate subsequent writes
+    strncpy(lastSavedCountStr, counter.getString(), sizeof(lastSavedCountStr) - 1);
+    lastSavedCountStr[sizeof(lastSavedCountStr) - 1] = '\0';
+    lastSavedTerrainOffset = terrainOffset;
+    lastSavedHomeUnlocks = homeUnlockFlags;
+    lastSavedLastCycle = lastCycleCompleteLifetime;
+    memcpy(lastSavedMilestones, milestoneFlags, sizeof(lastSavedMilestones));
+
     return true;
 }
 
 bool PersistenceManager::save(const ClickCounter& counter, const uint32_t milestoneFlags[MILESTONE_FLAG_WORDS]) {
-    prefs.putString(CLICKER_NVS_KEY_COUNT_STR, counter.getString());
-    prefs.putUInt(CLICKER_NVS_KEY_TERRAIN_OFFSET, terrainOffset);
+    const char* curStr = counter.getString();
+    if (strncmp(lastSavedCountStr, curStr, sizeof(lastSavedCountStr)) != 0) {
+        prefs.putString(CLICKER_NVS_KEY_COUNT_STR, curStr);
+        strncpy(lastSavedCountStr, curStr, sizeof(lastSavedCountStr) - 1);
+        lastSavedCountStr[sizeof(lastSavedCountStr) - 1] = '\0';
 
-    // Save legacy values for backwards compatibility if within range
-    uint64_t lifetime = counter.getLifetimeClicks();
-    if (lifetime != UINT64_MAX) {
-        uint32_t lo = 0;
-        uint32_t hi = 0;
-        unpackLifetime(lifetime, lo, hi);
-        prefs.putUInt(CLICKER_NVS_KEY_LIFETIME_LO, lo);
-        prefs.putUInt(CLICKER_NVS_KEY_LIFETIME_HI, hi);
-        prefs.putUInt(CLICKER_NVS_KEY_COMPLETED_CYCLES, counter.getCompletedCycles());
+        // Save legacy values for backwards compatibility if within range
+        uint64_t lifetime = counter.getLifetimeClicks();
+        if (lifetime != UINT64_MAX) {
+            uint32_t lo = 0;
+            uint32_t hi = 0;
+            unpackLifetime(lifetime, lo, hi);
+            prefs.putUInt(CLICKER_NVS_KEY_LIFETIME_LO, lo);
+            prefs.putUInt(CLICKER_NVS_KEY_LIFETIME_HI, hi);
+            prefs.putUInt(CLICKER_NVS_KEY_COMPLETED_CYCLES, counter.getCompletedCycles());
+        }
     }
 
-    prefs.putBytes(CLICKER_NVS_KEY_MILESTONES, milestoneFlags, MILESTONE_FLAG_WORDS * sizeof(uint32_t));
-    prefs.putUInt(CLICKER_NVS_KEY_HOME_UNLOCKS, homeUnlockFlags);
+    if (terrainOffset != lastSavedTerrainOffset) {
+        prefs.putUInt(CLICKER_NVS_KEY_TERRAIN_OFFSET, terrainOffset);
+        lastSavedTerrainOffset = terrainOffset;
+    }
 
-    uint32_t lo = 0;
-    uint32_t hi = 0;
-    unpackLifetime(lastCycleCompleteLifetime, lo, hi);
-    prefs.putUInt(CLICKER_NVS_KEY_LAST_CYCLE, lo);
-    prefs.putUInt(CLICKER_NVS_KEY_LAST_CYCLE_HI, hi);
+    if (memcmp(lastSavedMilestones, milestoneFlags, sizeof(lastSavedMilestones)) != 0) {
+        prefs.putBytes(CLICKER_NVS_KEY_MILESTONES, milestoneFlags, MILESTONE_FLAG_WORDS * sizeof(uint32_t));
+        memcpy(lastSavedMilestones, milestoneFlags, sizeof(lastSavedMilestones));
+    }
+
+    if (homeUnlockFlags != lastSavedHomeUnlocks) {
+        prefs.putUInt(CLICKER_NVS_KEY_HOME_UNLOCKS, homeUnlockFlags);
+        lastSavedHomeUnlocks = homeUnlockFlags;
+    }
+
+    if (lastCycleCompleteLifetime != lastSavedLastCycle) {
+        uint32_t lo = 0;
+        uint32_t hi = 0;
+        unpackLifetime(lastCycleCompleteLifetime, lo, hi);
+        prefs.putUInt(CLICKER_NVS_KEY_LAST_CYCLE, lo);
+        prefs.putUInt(CLICKER_NVS_KEY_LAST_CYCLE_HI, hi);
+        lastSavedLastCycle = lastCycleCompleteLifetime;
+    }
 
     dirty = false;
     clicksSincePersist = 0;
     lastPersistTime = millis();
 
+#if CLICKER_DEBUG
     Serial.print("[SISYPHUS] saved = ");
     Serial.println(counter.getString());
+#endif
     return true;
 }
 

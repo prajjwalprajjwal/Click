@@ -27,20 +27,26 @@ void CounterRenderer::drawBackground(float worldProgress, int16_t climbProgress)
     // 2. Far-away distant mountain peaks in upper background (parallax 0.15x)
     int16_t mtnX = - (static_cast<int32_t>(worldProgress * 0.15f) % DISTANT_MTN_WIDTH);
 
+    const int16_t bytesPerRow = (DISTANT_MTN_WIDTH + 7) / 8;
     for (int16_t rep = 0; rep < 3; rep++) {
         int16_t startX = mtnX + (rep * DISTANT_MTN_WIDTH);
-        if (startX > 128 || startX + DISTANT_MTN_WIDTH < 0) continue;
+        if (startX > 128 || startX + DISTANT_MTN_WIDTH <= 0) continue;
 
         for (int16_t my = 0; my < DISTANT_MTN_HEIGHT; my++) {
             int16_t py = 18 + my;
-            uint16_t byteIdx = my * ((DISTANT_MTN_WIDTH + 7) / 8);
+            uint16_t rowStart = my * bytesPerRow;
 
-            for (int16_t mx = 0; mx < DISTANT_MTN_WIDTH; mx++) {
-                int16_t px = startX + mx;
-                if (px >= 0 && px < 128 && py < getSlopeGroundY(px, climbProgress)) {
-                    uint8_t b = pgm_read_byte(distant_mountains_bmp + byteIdx + (mx / 8));
-                    if (b & (0x80 >> (mx % 8))) {
-                        display.drawPixel(px, py, SSD1306_WHITE);
+            for (int16_t byteCol = 0; byteCol < bytesPerRow; byteCol++) {
+                uint8_t b = pgm_read_byte(distant_mountains_bmp + rowStart + byteCol);
+                if (b == 0) continue; // Fast skip: 8 empty pixels in 1 CPU instruction
+
+                int16_t baseMx = byteCol * 8;
+                for (int16_t bit = 0; bit < 8; bit++) {
+                    if (b & (0x80 >> bit)) {
+                        int16_t px = startX + baseMx + bit;
+                        if (px >= 0 && px < 128 && py < getSlopeGroundY(px, climbProgress)) {
+                            display.drawPixel(px, py, SSD1306_WHITE);
+                        }
                     }
                 }
             }
@@ -187,19 +193,6 @@ void CounterRenderer::drawBoulder(int16_t bx, int16_t by, uint8_t rotFrame) cons
 
 void CounterRenderer::drawSisyphus(int16_t sx, int16_t sy, const uint8_t* spriteBmp, uint8_t width, uint8_t height) const {
     if (!spriteBmp) return;
-
-    // Silhouette mask (black out interior where sprite has detail)
-    for (int16_t y = 0; y < height; y++) {
-        uint16_t byteIdx = y * ((width + 7) / 8);
-        for (int16_t x = 0; x < width; x++) {
-            uint8_t b = pgm_read_byte(spriteBmp + byteIdx + (x / 8));
-            if ((b & (0x80 >> (x % 8))) != 0) {
-                display.drawPixel(sx + x, sy + y, SSD1306_BLACK);
-            }
-        }
-    }
-
-    // Draw white sprite pixels
     display.drawBitmap(sx, sy, spriteBmp, width, height, SSD1306_WHITE);
 }
 

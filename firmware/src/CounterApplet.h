@@ -31,11 +31,13 @@ private:
     float worldProgress = 0.0f;
 
     uint32_t lastFrameTime = 0;
+    uint32_t lastDisplayTime = 0;
     bool frameDirty = true;
 
-    // Paced Frame Timing (25 FPS push / 8 FPS walk)
+    // Paced Frame Timing (25 FPS push / 8 FPS walk / 30 FPS display refresh cap)
     static const uint32_t PUSH_FRAME_INTERVAL_MS = 40;  // 25 FPS
     static const uint32_t WALK_FRAME_INTERVAL_MS = 125; // 8 FPS
+    static const uint32_t MIN_DISPLAY_INTERVAL_MS = 33; // 30 FPS ceiling to protect I2C bus
 
     void loadState();
     void persistNow();

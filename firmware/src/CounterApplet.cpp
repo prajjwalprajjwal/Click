@@ -68,9 +68,10 @@ void CounterApplet::handleClick() {
     uint32_t now = millis();
     persistence.onClickRecorded(now);
 
+#if CLICKER_DEBUG
     Serial.print("[SISYPHUS] count = ");
     Serial.println(counter.getString());
-    Serial.println("[SISYPHUS] push");
+#endif
 
     // Check home unlock milestones
     uint64_t lifetime = counter.getLifetimeClicks();
@@ -104,8 +105,6 @@ void CounterApplet::handleClick() {
         lastFrameTime = now;
         frameDirty = true;
     }
-
-    persistIfNeeded(false);
 }
 
 void CounterApplet::updateAnimation(uint32_t now) {
@@ -224,12 +223,18 @@ void CounterApplet::update() {
 #if CLICKER_DEBUG
     processDebugSerial();
 #endif
+
+    // Yield CPU time to FreeRTOS scheduler so IDLE task and background threads stay fed
+    yield();
 }
 
 void CounterApplet::draw() {
-    if (!frameDirty) {
+    uint32_t now = millis();
+    // Enforce 30 FPS ceiling to prevent I2C bus flooding and allow CPU breathing room
+    if (!frameDirty || (now - lastDisplayTime) < MIN_DISPLAY_INTERVAL_MS) {
         return;
     }
+    lastDisplayTime = now;
     frameDirty = false;
 
     // Calculate persistent screen positions on organic slope:
@@ -281,6 +286,7 @@ void CounterApplet::draw() {
 
     // Exactly ONE I2C transfer per frame
     display.display();
+    yield();
 }
 
 void CounterApplet::cleanup() {

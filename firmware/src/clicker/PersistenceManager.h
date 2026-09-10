@@ -17,6 +17,12 @@ private:
     uint32_t lastClickTime = 0;
     uint32_t lastPersistTime = 0;
     uint32_t terrainOffset = 0;
+    // Cached values to avoid redundant SPI flash writes
+    uint32_t lastSavedTerrainOffset = UINT32_MAX;
+    uint32_t lastSavedHomeUnlocks = UINT32_MAX;
+    uint64_t lastSavedLastCycle = UINT64_MAX;
+    uint32_t lastSavedMilestones[MILESTONE_FLAG_WORDS] = {0};
+    char lastSavedCountStr[ClickCounter::MAX_DIGITS] = {0};
 
     bool save(const ClickCounter& counter, const uint32_t milestoneFlags[MILESTONE_FLAG_WORDS]);
 
