@@ -27,7 +27,7 @@ private:
     uint8_t boulderRotPhase = 0;
     uint8_t pendingPushes = 0;
 
-    int16_t climbProgress = 0; // Persistent uphill position during session
+    int32_t climbProgress = 0; // Persistent uphill position during session
     float worldProgress = 0.0f;
 
     uint32_t lastFrameTime = 0;

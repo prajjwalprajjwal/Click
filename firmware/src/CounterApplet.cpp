@@ -249,7 +249,7 @@ void CounterApplet::draw() {
   // Calculate persistent screen positions on organic slope:
   int16_t charX = 0;
   int16_t bldX = 0;
-  int16_t hillOffset = 0;
+  int32_t hillOffset = 0;
 
   if (climbProgress <= 18) {
     // Starts on flat ground plane at base (charX=18, bldX=38), climbs onto the
@@ -290,7 +290,8 @@ void CounterApplet::draw() {
 
   // Exactly ONE I2C transfer per frame
   display.display();
-  yield();
+  // Yield to FreeRTOS scheduler immediately after heavy 25ms I2C transfer
+  delay(1);
 }
 
 void CounterApplet::cleanup() { persistNow(); }

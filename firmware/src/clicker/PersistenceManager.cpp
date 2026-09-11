@@ -143,16 +143,9 @@ bool PersistenceManager::shouldPersist(uint32_t now) const {
     if (!dirty) {
         return false;
     }
-    // 1. Debounce inactivity: user stopped clicking for IDLE_DELAY_MS ("counting is done")
+    // Only persist after user stops clicking (inactivity debounce).
+    // Never interrupt active button clicking with flash writes!
     if ((now - lastClickTime) >= CLICKER_PERSIST_IDLE_DELAY_MS) {
-        return true;
-    }
-    // 2. Periodic clicks during continuous clicking session
-    if (clicksSincePersist >= CLICKER_PERSIST_EVERY_N_CLICKS) {
-        return true;
-    }
-    // 3. Max time elapsed since last persist during continuous clicking
-    if ((now - lastPersistTime) >= CLICKER_PERSIST_MAX_INTERVAL_MS) {
         return true;
     }
     return false;

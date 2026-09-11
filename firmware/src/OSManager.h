@@ -25,7 +25,7 @@ private:
     // Sleep management
     SleepState sleepState = AWAKE;
     uint32_t lastActivityTime = 0;
-    uint32_t lightSleepTimeout = 20000;    // 20 seconds before screensaver
+    uint32_t lightSleepTimeout = 20000;    // 20 seconds before light sleep
     uint32_t deepSleepTimeout = 45000;     // 45 seconds before deep sleep
     bool displayOn = true;
 

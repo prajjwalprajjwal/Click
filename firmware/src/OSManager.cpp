@@ -13,11 +13,16 @@ void OSManager::init() {
         currentApplet->init();
     }
     
-    Serial.println("[OSManager] Initialized. Home screen default. Light sleep: 20s, Deep sleep: 45s");
+    Serial.println("[OSManager] Initialized. Home screen default. Screensaver: 3m, Sleep: 10m");
 }
 
 void OSManager::update() {
     inputManager.update();
+    
+    // Any physical button contact keeps device active
+    if (digitalRead(ACTION_BUTTON_PIN) == LOW || digitalRead(MODE_BUTTON_PIN) == LOW) {
+        recordActivity();
+    }
     
     // Check if we should transition to sleep states
     checkSleepConditions();
@@ -48,20 +53,14 @@ void OSManager::checkSleepConditions() {
     uint32_t idleTime = now - lastActivityTime;
     
     if (sleepState == AWAKE) {
-        // If inactive for lightSleepTimeout (20s) and not already on screensaver:
-        if (screensaverApplet != nullptr && currentApplet != screensaverApplet && idleTime >= lightSleepTimeout) {
-            Serial.println("[OSManager] Inactivity detected: switching to snowfall screensaver");
-            if (currentApplet) {
-                currentApplet->cleanup();
-            }
-            currentApplet = screensaverApplet;
-            currentApplet->init();
-            return;
-        }
-
         if (idleTime >= deepSleepTimeout) {
             Serial.println("[OSManager] Entering DEEP SLEEP (45s idle)");
             enterDeepSleep();
+            return;
+        } else if (idleTime >= lightSleepTimeout) {
+            Serial.println("[OSManager] Entering LIGHT SLEEP (20s idle)");
+            enterLightSleep();
+            return;
         }
     }
 }
@@ -76,12 +75,7 @@ void OSManager::enterLightSleep() {
     sleepState = LIGHT_SLEEP;
     displayOn = false;
     
-    // Turn off display controller
-    display.clearDisplay();
-    display.ssd1306_command(SSD1306_DISPLAYOFF);
-    display.display();
-    
-    Serial.println("[OSManager] Light sleep: Entering low power sleep...");
+    Serial.println("[OSManager] Light sleep: Entering low power sleep (wake on button press)...");
 
     // Execute GPIO hold, power domain teardown, RF off, and enter esp_light_sleep_start()
     PowerManager::enterLightSleep();
@@ -123,9 +117,19 @@ void OSManager::enterDeepSleep() {
     display.ssd1306_command(SSD1306_DISPLAYOFF);
     display.display();
     
-    // Configure GPIO wakeup for both buttons (D14 and D32)
-    esp_sleep_enable_ext0_wakeup(GPIO_NUM_14, 0);  // Wake on LOW (button press)
-    esp_sleep_enable_ext1_wakeup(1ULL << 32, ESP_EXT1_WAKEUP_ALL_LOW);  // D32 also wakes on LOW
+    // Configure RTC GPIO wakeup & pull-ups for both buttons (D14 and D32)
+    rtc_gpio_init((gpio_num_t)MODE_BUTTON_PIN);
+    rtc_gpio_set_direction((gpio_num_t)MODE_BUTTON_PIN, RTC_GPIO_MODE_INPUT_ONLY);
+    rtc_gpio_pullup_en((gpio_num_t)MODE_BUTTON_PIN);
+    rtc_gpio_pulldown_dis((gpio_num_t)MODE_BUTTON_PIN);
+
+    rtc_gpio_init((gpio_num_t)ACTION_BUTTON_PIN);
+    rtc_gpio_set_direction((gpio_num_t)ACTION_BUTTON_PIN, RTC_GPIO_MODE_INPUT_ONLY);
+    rtc_gpio_pullup_en((gpio_num_t)ACTION_BUTTON_PIN);
+    rtc_gpio_pulldown_dis((gpio_num_t)ACTION_BUTTON_PIN);
+
+    esp_sleep_enable_ext0_wakeup((gpio_num_t)MODE_BUTTON_PIN, 0);  // Wake on LOW (button press)
+    esp_sleep_enable_ext1_wakeup(1ULL << ACTION_BUTTON_PIN, ESP_EXT1_WAKEUP_ALL_LOW);  // D32 also wakes on LOW
     
     Serial.println("[OSManager] Deep sleep: entering... (wake on button press)");
     delay(100);

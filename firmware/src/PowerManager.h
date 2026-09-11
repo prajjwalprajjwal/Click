@@ -100,10 +100,24 @@ public:
             gpio_hold_en((gpio_num_t)OLED_EN_PIN);
         }
 
-        // 4. Configure Button RTC Wakeup (EXT0 on GPIO14, EXT1 on GPIO32)
+        // 4. Configure Button RTC Wakeup & Pullups (GPIO14 & GPIO32)
         pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
         pinMode(ACTION_BUTTON_PIN, INPUT_PULLUP);
         
+        rtc_gpio_init((gpio_num_t)MODE_BUTTON_PIN);
+        rtc_gpio_set_direction((gpio_num_t)MODE_BUTTON_PIN, RTC_GPIO_MODE_INPUT_ONLY);
+        rtc_gpio_pullup_en((gpio_num_t)MODE_BUTTON_PIN);
+        rtc_gpio_pulldown_dis((gpio_num_t)MODE_BUTTON_PIN);
+
+        rtc_gpio_init((gpio_num_t)ACTION_BUTTON_PIN);
+        rtc_gpio_set_direction((gpio_num_t)ACTION_BUTTON_PIN, RTC_GPIO_MODE_INPUT_ONLY);
+        rtc_gpio_pullup_en((gpio_num_t)ACTION_BUTTON_PIN);
+        rtc_gpio_pulldown_dis((gpio_num_t)ACTION_BUTTON_PIN);
+
+        gpio_wakeup_enable((gpio_num_t)MODE_BUTTON_PIN, GPIO_INTR_LOW_LEVEL);
+        gpio_wakeup_enable((gpio_num_t)ACTION_BUTTON_PIN, GPIO_INTR_LOW_LEVEL);
+        esp_sleep_enable_gpio_wakeup();
+
         esp_sleep_enable_ext0_wakeup((gpio_num_t)MODE_BUTTON_PIN, 0); // Wake on LOW (press)
         esp_sleep_enable_ext1_wakeup(1ULL << ACTION_BUTTON_PIN, ESP_EXT1_WAKEUP_ALL_LOW);
 
@@ -114,7 +128,7 @@ public:
         esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_SLOW_MEM, ESP_PD_OPTION_ON);
         esp_sleep_pd_config(ESP_PD_DOMAIN_RTC_FAST_MEM, ESP_PD_OPTION_ON);
         esp_sleep_pd_config(ESP_PD_DOMAIN_XTAL, ESP_PD_OPTION_OFF);
-        esp_sleep_pd_config(ESP_PD_DOMAIN_VDDSDIO, ESP_PD_OPTION_OFF);
+        esp_sleep_pd_config(ESP_PD_DOMAIN_VDDSDIO, ESP_PD_OPTION_ON);
 
         #if CONFIG_SOC_ADC_SUPPORTED
         adc_power_release();
@@ -166,6 +180,8 @@ public:
         Serial.begin(115200);
 
         // 5. Restore Button PinModes
+        rtc_gpio_deinit((gpio_num_t)MODE_BUTTON_PIN);
+        rtc_gpio_deinit((gpio_num_t)ACTION_BUTTON_PIN);
         pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
         pinMode(ACTION_BUTTON_PIN, INPUT_PULLUP);
 

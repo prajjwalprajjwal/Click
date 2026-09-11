@@ -105,7 +105,7 @@ void setup() {
     ThemeFonts::drawCentered(&Rajdhani12pt7b, "Starting up...", 48);
 #endif
     display.display();
-    delay(1000);
+    delay(800);
 
     // Register playable main applets (index 0 is active on boot)
     osManager.registerApplet(&counterApplet);     // index 0: Clicker (Default on boot)
@@ -130,5 +130,6 @@ void setup() {
 void loop() {
     osManager.update();
     osManager.draw();
-    delayMicroseconds(1000);
+    // Yield execution to FreeRTOS scheduler so IDLE task and TWDT watchdog on Core 1 are fed!
+    delay(2);
 }
