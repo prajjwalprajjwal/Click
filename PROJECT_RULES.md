@@ -11,13 +11,20 @@
 The following files and subsystems are locked and **must not be edited, refactored, or overwritten** unless the user explicitly requests changes in a specific prompt:
 
 ### A. NVS Storage & Persistent State
-- `firmware/src/clicker/ClickCounter.h` / `firmware/src/clicker/ClickCounter.cpp`
-- `firmware/src/clicker/MilestoneManager.h` / `firmware/src/clicker/MilestoneManager.cpp`
-- `firmware/src/clicker/PersistenceManager.h` / `firmware/src/clicker/PersistenceManager.cpp`
+- `firmware/src/applets/clicker/ClickCounter.h` / `firmware/src/applets/clicker/ClickCounter.cpp`
+- `firmware/src/applets/clicker/MilestoneManager.h` / `firmware/src/applets/clicker/MilestoneManager.cpp`
+- `firmware/src/applets/clicker/PersistenceManager.h` / `firmware/src/applets/clicker/PersistenceManager.cpp`
 - Any storage retention logic utilizing `Preferences.h` (dual-key `nvs_a`/`nvs_b` backup, checksum validation, wear-leveling, NVS namespaces).
 
-### B. Hardware Pin Profiles & Power Management
+### B. Hardware Pin Profiles & Core System
 - `platformio.ini` (board definitions, upload speeds, framework versions, build flags).
+- **Core System Files** (`firmware/src/system/`):
+  - `system/Display.h` (Hardware I2C: SDA on `GPIO 21`, SCL on `GPIO 22`). **NEVER** use `GPIO 36` (VP) for I2C clock.
+  - `system/InputManager.h` / `.cpp` (Button debouncing & hold state machine).
+  - `system/battery.hpp` (Battery ADC on `GPIO 35`, Charger STAT on `GPIO 33`).
+  - `system/PowerManager.h` (UART pad hold isolation, sleep power domains, 9-cycle I2C bus recovery pulse).
+  - `system/OSManager.h` / `.cpp` (Applet lifecycle, screensaver & sleep timeouts).
+  - `system/Applet.h` (Base class contract for all applets).
 - **Active Prototyping Hardware (Click 1: ESP32-WROOM-32E)**:
   - *Note*: All current code and builds in `firmware/` run on this physical prototype board.
   - Microcontroller: ESP32-WROOM-32E (Xtensa Dual-Core 240MHz, 4MB Flash)
@@ -80,7 +87,12 @@ Click/
 ├── firmware/                         # Embedded C++ firmware
 │   ├── assets/screens/               # Raw PNG images (128x64, 1-bit)
 │   ├── scripts/                      # Pre-build asset converter & flasher scripts
-│   └── src/                          # C++ source code, OS & applets
+│   └── src/                          # Application source code
+│       ├── main.cpp                  # Entry point & applet registry
+│       ├── system/                   # Core OS, drivers & power management
+│       ├── applets/                  # Isolated, plug-and-play applets
+│       ├── fonts/                    # GFX typography
+│       └── generated_assets/         # Auto-generated bitmaps
 ├── web_flasher/                      # Browser WebSerial updater
 │   ├── index.html                    # Web flasher UI
 │   ├── app.js                        # Device discovery & manifest controller

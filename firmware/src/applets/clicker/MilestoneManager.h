@@ -2,8 +2,8 @@
 #define MILESTONE_MANAGER_H
 
 #include <stdint.h>
-#include "clicker/ClickCounter.h"
-#include "clicker/MilestoneTypes.h"
+#include "ClickCounter.h"
+#include "MilestoneTypes.h"
 
 class MilestoneManager {
 private:

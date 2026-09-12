@@ -1,6 +1,6 @@
-#include "clicker/CounterRenderer.h"
+#include "CounterRenderer.h"
 #include "Display.h"
-#include "clicker/SisyphusSprites.h"
+#include "SisyphusSprites.h"
 #include <cctype>
 #include <cstdio>
 #include <cstring>

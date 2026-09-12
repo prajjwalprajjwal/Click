@@ -1,13 +1,19 @@
 #include <Arduino.h>
 #include <Wire.h>
-#include "Display.h"
-#include "OSManager.h"
-#include "HomeApplet.h"
-#include "CounterApplet.h"
-#include "TimingGameApplet.h"
-#include "SettingsApplet.h"
+
+// Core System
+#include "system/Display.h"
+#include "system/OSManager.h"
+
+// Modular Applets
+#include "applets/clicker/CounterApplet.h"
+#include "applets/timing_game/TimingGameApplet.h"
+#include "applets/flappy_bird/FlappyBirdApplet.h"
+#include "applets/settings/SettingsApplet.h"
+#include "applets/screensaver/HomeApplet.h"
+
+// Typography
 #include "fonts/ThemeFonts.h"
-#include "FlappyBirdApplet.h"
 
 #if __has_include("generated_assets/bootscreen.h")
   #include "generated_assets/bootscreen.h"

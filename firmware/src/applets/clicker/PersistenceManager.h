@@ -4,8 +4,8 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <stdint.h>
-#include "clicker/ClickCounter.h"
-#include "clicker/MilestoneTypes.h"
+#include "ClickCounter.h"
+#include "MilestoneTypes.h"
 
 class PersistenceManager {
 private:

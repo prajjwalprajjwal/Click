@@ -1,7 +1,7 @@
 #ifndef COUNTER_RENDERER_H
 #define COUNTER_RENDERER_H
 
-#include "clicker/SisyphusSprites.h"
+#include "SisyphusSprites.h"
 #include <Arduino.h>
 #include <stddef.h>
 #include <stdint.h>

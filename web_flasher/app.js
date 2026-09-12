@@ -2,15 +2,26 @@
 
 const DEFAULT_RELEASES = [
   {
-    tag: "v1.0.0",
-    version: "1.0.0",
+    tag: "v0.1.0",
+    version: "0.1.0",
     name: "Clicker Device Firmware",
-    manifest: "manifest.json",
-    bin: "firmware.bin",
-    factory_bin: "factory_firmware.bin",
-    size: 360512,
-    factory_size: 426048,
+    manifest: "releases/v0.1.0/manifest.json",
+    bin: "releases/v0.1.0/firmware.bin",
+    factory_bin: "releases/v0.1.0/factory_firmware.bin",
+    size: 567984,
+    factory_size: 633520,
     is_latest: true
+  },
+  {
+    tag: "v0.0.1",
+    version: "0.0.1",
+    name: "Clicker Device Firmware",
+    manifest: "releases/v0.0.1/manifest.json",
+    bin: "releases/v0.0.1/firmware.bin",
+    factory_bin: "releases/v0.0.1/factory_firmware.bin",
+    size: 373216,
+    factory_size: 438752,
+    is_latest: false
   }
 ];
 
@@ -218,20 +229,18 @@ function setupErrorInterceptors() {
  */
 async function detectWorkingReleasePrefix() {
   const candidates = [
-    'manifest.json',
-    'releases/v1.0.0/manifest.json',
-    '../releases/v1.0.0/manifest.json',
-    './releases/v1.0.0/manifest.json',
-    '/releases/v1.0.0/manifest.json'
+    'releases/v0.1.0/manifest.json',
+    '../releases/v0.1.0/manifest.json',
+    './releases/v0.1.0/manifest.json',
+    '/releases/v0.1.0/manifest.json',
+    'manifest.json'
   ];
 
   for (const candidate of candidates) {
     try {
       const res = await fetch(candidate, { method: 'HEAD' });
       if (res.ok) {
-        if (candidate === 'manifest.json') {
-          detectedPathPrefix = '';
-        } else if (candidate.startsWith('../releases/')) {
+        if (candidate.startsWith('../releases/')) {
           detectedPathPrefix = '../releases/';
         } else if (candidate.startsWith('releases/')) {
           detectedPathPrefix = 'releases/';
@@ -239,6 +248,8 @@ async function detectWorkingReleasePrefix() {
           detectedPathPrefix = './releases/';
         } else if (candidate.startsWith('/releases/')) {
           detectedPathPrefix = '/releases/';
+        } else {
+          detectedPathPrefix = '';
         }
         console.log(`Resolved releases path prefix: "${detectedPathPrefix}" using probe: ${candidate}`);
         return;
@@ -254,6 +265,7 @@ async function loadVersionRegistry() {
   const candidateUrls = [
     'versions.json',
     `${detectedPathPrefix}versions.json`,
+    'releases/versions.json',
     '../releases/versions.json',
     './releases/versions.json'
   ];
@@ -266,9 +278,22 @@ async function loadVersionRegistry() {
         if (data.releases && data.releases.length > 0) {
           availableReleases = data.releases.map(rel => {
             const tag = rel.tag || `v${rel.version}`;
-            const manifestPath = detectedPathPrefix ? `${detectedPathPrefix}${tag}/manifest.json` : 'manifest.json';
-            const binPath = detectedPathPrefix ? `${detectedPathPrefix}${tag}/firmware.bin` : 'firmware.bin';
-            const factoryBinPath = detectedPathPrefix ? `${detectedPathPrefix}${tag}/factory_firmware.bin` : 'factory_firmware.bin';
+            let manifestPath = rel.manifest || `releases/${tag}/manifest.json`;
+            let binPath = rel.bin || `releases/${tag}/firmware.bin`;
+            let factoryBinPath = rel.factory_bin || `releases/${tag}/factory_firmware.bin`;
+
+            if (detectedPathPrefix && detectedPathPrefix !== 'releases/') {
+              if (manifestPath.startsWith('releases/')) {
+                manifestPath = detectedPathPrefix + manifestPath.substring('releases/'.length);
+              }
+              if (binPath.startsWith('releases/')) {
+                binPath = detectedPathPrefix + binPath.substring('releases/'.length);
+              }
+              if (factoryBinPath.startsWith('releases/')) {
+                factoryBinPath = detectedPathPrefix + factoryBinPath.substring('releases/'.length);
+              }
+            }
+
             return {
               ...rel,
               tag: tag,

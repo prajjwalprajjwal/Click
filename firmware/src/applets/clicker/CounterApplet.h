@@ -3,9 +3,9 @@
 
 #include <stdint.h>
 #include "Applet.h"
-#include "clicker/ClickCounter.h"
-#include "clicker/PersistenceManager.h"
-#include "clicker/CounterRenderer.h"
+#include "ClickCounter.h"
+#include "PersistenceManager.h"
+#include "CounterRenderer.h"
 
 enum class SisyphusAnimMode : uint8_t {
     IDLE_WALKING,

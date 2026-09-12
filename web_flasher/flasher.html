@@ -783,11 +783,12 @@
   <script>
     (function() {
       const DEFAULT_VERSIONS = [
-        { tag: "v1.0.0", version: "1.0.0", manifest: "../releases/v1.0.0/manifest.json", bin: "../releases/v1.0.0/firmware.bin", size: 360512, is_latest: true }
+        { tag: "v0.1.0", version: "0.1.0", manifest: "releases/v0.1.0/manifest.json", bin: "releases/v0.1.0/firmware.bin", size: 567984, is_latest: true },
+        { tag: "v0.0.1", version: "0.0.1", manifest: "releases/v0.0.1/manifest.json", bin: "releases/v0.0.1/firmware.bin", size: 373216, is_latest: false }
       ];
 
       let releaseList = DEFAULT_VERSIONS;
-      let pathPrefix = '../releases/';
+      let pathPrefix = 'releases/';
 
       async function init() {
         checkSerial();
@@ -841,10 +842,11 @@
 
       async function detectPathPrefix() {
         const candidates = [
-          '../releases/v1.0.4/manifest.json',
-          'releases/v1.0.4/manifest.json',
-          './releases/v1.0.4/manifest.json',
-          '/releases/v1.0.4/manifest.json'
+          'releases/v0.1.0/manifest.json',
+          '../releases/v0.1.0/manifest.json',
+          './releases/v0.1.0/manifest.json',
+          '/releases/v0.1.0/manifest.json',
+          'manifest.json'
         ];
         for (const c of candidates) {
           try {
@@ -854,6 +856,7 @@
               else if (c.startsWith('releases/')) pathPrefix = 'releases/';
               else if (c.startsWith('./releases/')) pathPrefix = './releases/';
               else if (c.startsWith('/releases/')) pathPrefix = '/releases/';
+              else pathPrefix = '';
               return;
             }
           } catch (e) {}
@@ -864,6 +867,7 @@
         const fetchUrls = [
           'versions.json',
           `${pathPrefix}versions.json`,
+          'releases/versions.json',
           '../releases/versions.json',
           './releases/versions.json'
         ];
@@ -876,11 +880,23 @@
               if (data.releases && data.releases.length > 0) {
                 releaseList = data.releases.map(rel => {
                   const tag = rel.tag || `v${rel.version}`;
+                  let manifestPath = rel.manifest || `releases/${tag}/manifest.json`;
+                  let binPath = rel.bin || `releases/${tag}/firmware.bin`;
+
+                  if (pathPrefix && pathPrefix !== 'releases/') {
+                    if (manifestPath.startsWith('releases/')) {
+                      manifestPath = pathPrefix + manifestPath.substring('releases/'.length);
+                    }
+                    if (binPath.startsWith('releases/')) {
+                      binPath = pathPrefix + binPath.substring('releases/'.length);
+                    }
+                  }
+
                   return {
                     ...rel,
                     tag: tag,
-                    manifest: `${pathPrefix}${tag}/manifest.json`,
-                    bin: `${pathPrefix}${tag}/firmware.bin`
+                    manifest: manifestPath,
+                    bin: binPath
                   };
                 });
                 return;
@@ -891,8 +907,8 @@
 
         releaseList = DEFAULT_VERSIONS.map(rel => ({
           ...rel,
-          manifest: `${pathPrefix}${rel.tag}/manifest.json`,
-          bin: `${pathPrefix}${rel.tag}/firmware.bin`
+          manifest: pathPrefix && pathPrefix !== 'releases/' ? `${pathPrefix}${rel.tag}/manifest.json` : rel.manifest,
+          bin: pathPrefix && pathPrefix !== 'releases/' ? `${pathPrefix}${rel.tag}/firmware.bin` : rel.bin
         }));
       }
 

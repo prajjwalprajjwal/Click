@@ -29,25 +29,23 @@ Click/
 │   │   ├── flash.sh                  <-- Flashing utility for macOS / Linux
 │   │   └── flash.bat                 <-- Flashing utility for Windows
 │   └── src/                          <-- Application source code & applets
-│       ├── main.cpp                  <-- Firmware entry point, interrupts & OS loop
-│       ├── OSManager.h / .cpp        <-- Applet scheduler & sleep lifecycle manager
-│       ├── PowerManager.h            <-- Light sleep, UART isolation & I2C bus recovery
-│       ├── Display.h                 <-- SSD1306 128x64 display singleton & fast I2C
-│       ├── InputManager.h / .cpp     <-- Debounced button state machine & holds
-│       ├── battery.hpp               <-- Piece-wise LiPo curve & EMA filter
-│       ├── device_info.hpp           <-- Unique eFuse MAC hardware identifier
-│       ├── CounterApplet.h / .cpp    <-- Sisyphus uphill clicker game applet
-│       ├── TimingGameApplet.h / .cpp <-- "Just 10 Seconds" accuracy timing game
-│       ├── FlappyBirdApplet.h / .cpp <-- Flappy Bird obstacle navigation game
-│       ├── SettingsApplet.h          <-- Hardware stats, voltage & device ID
-│       ├── HomeApplet.h / .cpp       <-- Snowfall particle screensaver
-│       ├── clicker/                  <-- Sisyphus physics & persistence engine
-│       │   ├── ClickCounter.h / .cpp <-- Counter logic & full-integer formatting
-│       │   ├── CounterRenderer.h/.cpp<-- Mountain ascent, stamina bar & boulder physics
-│       │   ├── SisyphusSprites.h     <-- 25 FPS pushing & walking sprite animations
-│       │   ├── MilestoneManager.h    <-- Celebration triggers & unlocked tiers
-│       │   └── PersistenceManager.h  <-- Wear-leveled dual-key NVS backup storage
+│       ├── main.cpp                  <-- Application entry point & applet registry
+│       ├── system/                   <-- Core OS, drivers & power management (untouched by applets)
+│       │   ├── Applet.h              <-- Base class interface for all applets
+│       │   ├── OSManager.h / .cpp    <-- Applet scheduler & sleep lifecycle
+│       │   ├── PowerManager.h        <-- Light/Deep sleep, UART isolation & I2C recovery
+│       │   ├── Display.h             <-- SSD1306 OLED singleton & 400kHz fast I2C
+│       │   ├── InputManager.h / .cpp <-- Debounced button state machine & hold triggers
+│       │   ├── battery.hpp           <-- Battery voltage, percentage & charging status
+│       │   └── device_info.hpp       <-- Unique eFuse MAC hardware identifier
+│       ├── applets/                  <-- Self-contained, modular games & apps
+│       │   ├── clicker/              <-- Sisyphus uphill clicker game & physics engine
+│       │   ├── timing_game/          <-- "Just 10 Seconds" accuracy timing game
+│       │   ├── flappy_bird/          <-- Flappy Bird arcade obstacle game
+│       │   ├── settings/             <-- Hardware status, voltage & device ID screen
+│       │   └── screensaver/          <-- Snowfall particle animation on idle
 │       ├── fonts/                    <-- Custom Adafruit GFX typography headers
+│       ├── screens/                  <-- Legacy milestone overlay renderers
 │       └── generated_assets/         <-- Auto-generated C bitmap headers
 ├── web_flasher/                      <-- WebSerial flashing site (flashclick.uprajjwal.com.np)
 │   ├── index.html                    <-- Web application entry point
@@ -132,6 +130,39 @@ The firmware features an event-driven `OSManager` hosting four built-in applets 
 | **Reset Game Score** | `ACTION` Button (Hold > 3s) | Reset the score/counter of the currently active applet. |
 | **Wake from Sleep** | Either Button (`MODE` or `ACTION`) | Instantly wakes the device from Light Sleep or Deep Sleep. |
 | **Factory Master Reset** | **Both Buttons Held** (> 4s) | Erase all NVS partitions, resetting lifetime clicks and milestones. |
+
+---
+
+## 🛠️ Adding New Applets (Developer Guide)
+
+The system firmware (`firmware/src/system/`) provides an isolated runtime environment. You or any contributor can add new games or micro-apps without touching, altering, or risking the core OS, sleep managers, or display drivers:
+
+1. **Create an Applet Folder**: Create a directory in `firmware/src/applets/` (e.g., `firmware/src/applets/snake/`).
+2. **Implement the `Applet` Interface**:
+   ```cpp
+   #pragma once
+   #include "system/Applet.h"
+   #include "system/Display.h"
+
+   class SnakeApplet : public Applet {
+   public:
+       void init() override { /* Setup game state */ }
+       void update() override { /* Real-time physics / tick loop */ }
+       void draw() override { /* Draw frame on display */ }
+       void cleanup() override { /* Teardown temporary state */ }
+       void onActionClick() override { /* Handle ACTION button press */ }
+   };
+   ```
+3. **Register in `firmware/src/main.cpp`**:
+   ```cpp
+   #include "applets/snake/SnakeApplet.h"
+   SnakeApplet snakeApplet;
+
+   // In setup():
+   osManager.registerApplet(&snakeApplet);
+   ```
+
+All input debouncing, display clocking (400kHz Fast I2C), light sleep (20s), deep sleep (45s), and RTC wakeups continue working automatically in the background.
 
 ---
 

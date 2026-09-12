@@ -71,15 +71,23 @@ def find_platformio() -> str:
     if pio_path:
         return pio_path
 
+    home = Path.home()
+    candidates = [
+        home / ".platformio" / "penv" / "bin" / "pio",
+        home / ".platformio" / "penv" / "bin" / "platformio",
+        home / ".platformio" / "penv" / "Scripts" / "pio.exe",
+        home / ".platformio" / "penv" / "Scripts" / "platformio.exe",
+    ]
     user_profile = os.environ.get("USERPROFILE", "")
     if user_profile:
-        candidates = [
+        candidates.extend([
             Path(user_profile) / ".platformio" / "penv" / "Scripts" / "pio.exe",
             Path(user_profile) / ".platformio" / "penv" / "Scripts" / "platformio.exe",
-        ]
-        for c in candidates:
-            if c.exists():
-                return str(c)
+        ])
+
+    for c in candidates:
+        if c.exists():
+            return str(c)
 
     return "pio"
 
@@ -142,12 +150,40 @@ def merge_factory_binary(target_dir: Path) -> Path:
     firmware_bin = build_dir / "firmware.bin"
     boot_app0_bin = ROOT / "tools" / "flasher" / "boot_app0.bin"
 
-    user_profile = Path(os.environ.get("USERPROFILE", ""))
-    penv_py = user_profile / ".platformio" / "penv" / "Scripts" / "python.exe"
-    esptool_py = user_profile / ".platformio" / "packages" / "tool-esptoolpy" / "esptool.py"
+    home = Path.home()
+    penv_candidates = [
+        home / ".platformio" / "penv" / "bin" / "python3",
+        home / ".platformio" / "penv" / "bin" / "python",
+        home / ".platformio" / "penv" / "Scripts" / "python.exe",
+    ]
+    user_profile = os.environ.get("USERPROFILE", "")
+    if user_profile:
+        penv_candidates.append(Path(user_profile) / ".platformio" / "penv" / "Scripts" / "python.exe")
+
+    penv_py = None
+    for p in penv_candidates:
+        if p.exists():
+            penv_py = p
+            break
+    if not penv_py:
+        penv_py = Path(sys.executable)
+
+    esptool_candidates = [
+        home / ".platformio" / "packages" / "tool-esptoolpy" / "esptool.py",
+        home / ".platformio" / "penv" / "bin" / "esptool.py",
+        home / ".platformio" / "penv" / "Scripts" / "esptool.py",
+    ]
+    if user_profile:
+        esptool_candidates.append(Path(user_profile) / ".platformio" / "packages" / "tool-esptoolpy" / "esptool.py")
+
+    esptool_py = None
+    for e in esptool_candidates:
+        if e.exists():
+            esptool_py = e
+            break
 
     merged = False
-    if penv_py.exists() and esptool_py.exists() and boot_app0_bin.exists():
+    if penv_py and esptool_py and esptool_py.exists() and boot_app0_bin.exists():
         cmd = [
             str(penv_py), str(esptool_py),
             "--chip", "esp32",
@@ -215,6 +251,11 @@ def package_release(new_version: str, max_releases: int = 5) -> Path:
 
     parts.append({"path": "firmware.bin", "offset": 65536})
 
+    boot_app0_bin = ROOT / "tools" / "flasher" / "boot_app0.bin"
+    if boot_app0_bin.exists():
+        shutil.copy2(boot_app0_bin, target_dir / "boot_app0.bin")
+        print("  + Copied boot_app0.bin (offset 0xe000 / 57344)")
+
     # Merge full factory image for 3rd-party flashers (offset 0x0)
     factory_bin = merge_factory_binary(target_dir)
 
@@ -280,10 +321,12 @@ def package_release(new_version: str, max_releases: int = 5) -> Path:
         "releases": all_releases,
     }
 
-    # 6. Write directly to web_flasher/
+    # 6. Write directly to web_flasher/ and web_flasher/releases/
     print("\n[4/4] Updating web flasher root assets...")
     if WEB_FLASHER_DIR.exists():
         (WEB_FLASHER_DIR / "versions.json").write_text(json.dumps(versions_json, indent=2), encoding="utf-8")
+        if RELEASES_DIR.exists():
+            (RELEASES_DIR / "versions.json").write_text(json.dumps(versions_json, indent=2), encoding="utf-8")
 
         # Copy direct latest binaries to web_flasher root for zero-traversal local execution
         shutil.copy2(target_dir / "firmware.bin", WEB_FLASHER_DIR / "firmware.bin")
@@ -293,6 +336,8 @@ def package_release(new_version: str, max_releases: int = 5) -> Path:
             shutil.copy2(bootloader_bin, WEB_FLASHER_DIR / "bootloader.bin")
         if partitions_bin.exists():
             shutil.copy2(partitions_bin, WEB_FLASHER_DIR / "partitions.bin")
+        if boot_app0_bin.exists():
+            shutil.copy2(boot_app0_bin, WEB_FLASHER_DIR / "boot_app0.bin")
         print("  + Synchronized web_flasher/ with latest active release.")
 
     return target_dir

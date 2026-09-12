@@ -1,4 +1,4 @@
-#include "clicker/ClickCounter.h"
+#include "ClickCounter.h"
 #include <cstring>
 #include <cstdio>
 #include <cctype>

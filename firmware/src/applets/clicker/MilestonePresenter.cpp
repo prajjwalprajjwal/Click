@@ -1,4 +1,4 @@
-#include "clicker/MilestonePresenter.h"
+#include "MilestonePresenter.h"
 #include <Arduino.h>
 #include "screens/OledScreen.h"
 #include "screens/ScreenDrawer.h"

@@ -1,8 +1,8 @@
 #include "CounterApplet.h"
 #include "Display.h"
-#include "HomeApplet.h"
-#include "clicker/ClickerConfig.h"
-#include "clicker/SisyphusSprites.h"
+#include "applets/screensaver/HomeApplet.h"
+#include "ClickerConfig.h"
+#include "SisyphusSprites.h"
 
 extern HomeApplet homeApplet;
 

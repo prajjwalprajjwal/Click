@@ -1,5 +1,5 @@
-#include "clicker/MilestoneManager.h"
-#include "clicker/ClickerConfig.h"
+#include "MilestoneManager.h"
+#include "ClickerConfig.h"
 #include <cstring>
 
 static const MilestoneTrigger kMilestones[] = {

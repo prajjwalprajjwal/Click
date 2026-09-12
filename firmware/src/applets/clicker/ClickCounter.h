@@ -3,7 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
-#include "clicker/ClickerConfig.h"
+#include "ClickerConfig.h"
 
 class ClickCounter {
 public:

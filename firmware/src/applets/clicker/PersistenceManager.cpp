@@ -1,5 +1,5 @@
-#include "clicker/PersistenceManager.h"
-#include "clicker/ClickerConfig.h"
+#include "PersistenceManager.h"
+#include "ClickerConfig.h"
 #include <cstring>
 #include <cstdio>
 

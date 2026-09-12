@@ -33,9 +33,15 @@
 
 ## Release History & Changes
 
-### [v1.0.3] - 2026-09-12
+### [v0.1.0] - 2026-09-12
 
 #### Added
+- **Modular Firmware Architecture (`firmware/src/system/` & `firmware/src/applets/`)**:
+  - Isolated core system firmware from game and applet logic to make adding new applets trivial without touching core OS/hardware code.
+  - Core system layer (`Display.h`, `OSManager`, `PowerManager`, `InputManager`, `battery.hpp`, `device_info.hpp`, `Applet.h`) centralized into `firmware/src/system/`.
+  - Applets organized into self-contained directories (`applets/clicker/`, `applets/timing_game/`, `applets/flappy_bird/`, `applets/settings/`, `applets/screensaver/`).
+  - Removed obsolete legacy `input.hpp`.
+  - Updated `platformio.ini` include flags so system and applet headers are resolved cleanly.
 - **Sisyphus Clicker Game Engine (`CounterApplet`, `CounterRenderer`, `SisyphusSprites`)**:
   - Complete thematic overhaul: Sisyphus rolling a boulder up a mountain slope.
   - Multi-frame sprite animations: 25 FPS pushing cycle, 8 FPS walking cycle, and 10 FPS ambient cloud drift.

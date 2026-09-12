@@ -2,7 +2,7 @@
 #define MILESTONE_PRESENTER_H
 
 #include <stdint.h>
-#include "clicker/MilestoneTypes.h"
+#include "MilestoneTypes.h"
 
 struct CelebrationScreen;
 
