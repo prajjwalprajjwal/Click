@@ -8,8 +8,8 @@ const DEFAULT_RELEASES = [
     manifest: "releases/v0.1.0/manifest.json",
     bin: "releases/v0.1.0/firmware.bin",
     factory_bin: "releases/v0.1.0/factory_firmware.bin",
-    size: 568416,
-    factory_size: 633952,
+    size: 570240,
+    factory_size: 635776,
     is_latest: true
   },
   {
@@ -50,6 +50,104 @@ try {
 
 let sessionAttempts = parseInt(sessionStorage.getItem('flasher_session_attempts') || '0', 10);
 let ch340Reassured = sessionStorage.getItem('flasher_ch340_reassured') === 'true';
+
+// Binary Patcher for Custom Hardware Name
+window._customHardwareName = '';
+
+async function patchFirmwareCustomName(arrayBuffer, newName) {
+  const bytes = new Uint8Array(arrayBuffer);
+  const prefixStr = '__CLICK_NAME__:';
+  const suffixStr = ':__END_NAME___';
+
+  let targetIdx = -1;
+  for (let i = 0; i <= bytes.length - 64; i++) {
+    if (bytes[i] === 0x5f && bytes[i + 1] === 0x5f) { // '__'
+      let matchPrefix = true;
+      for (let j = 0; j < prefixStr.length; j++) {
+        if (bytes[i + j] !== prefixStr.charCodeAt(j)) {
+          matchPrefix = false;
+          break;
+        }
+      }
+      if (!matchPrefix) continue;
+
+      let matchSuffix = true;
+      for (let j = 0; j < suffixStr.length; j++) {
+        if (bytes[i + 48 + j] !== suffixStr.charCodeAt(j)) {
+          matchSuffix = false;
+          break;
+        }
+      }
+      if (matchSuffix) {
+        targetIdx = i;
+        break;
+      }
+    }
+  }
+
+  if (targetIdx === -1) {
+    console.warn('[Web Flasher] Custom hardware name signature not found in binary.');
+    return arrayBuffer;
+  }
+
+  const nameOffset = targetIdx + 16;
+  const oldBytes = new Uint8Array(bytes.subarray(nameOffset, nameOffset + 32));
+  const cleanName = (newName && newName.trim().length > 0) ? newName.trim() : 'CLICKER';
+  const newBytes = new Uint8Array(32);
+  for (let i = 0; i < Math.min(cleanName.length, 31); i++) {
+    newBytes[i] = cleanName.charCodeAt(i) & 0xff;
+  }
+
+  console.info(`[Web Flasher] Patching custom hardware name "${cleanName}" at offset 0x${nameOffset.toString(16)}...`);
+
+  let deltaXor = 0;
+  for (let i = 0; i < 32; i++) {
+    deltaXor ^= oldBytes[i];
+    deltaXor ^= newBytes[i];
+    bytes[nameOffset + i] = newBytes[i];
+  }
+
+  // Update 1-byte checksum at len - 33
+  if (bytes.length >= 33) {
+    bytes[bytes.length - 33] ^= deltaXor;
+  }
+
+  // Recalculate SHA-256 hash across [0, len - 32]
+  if (window.crypto && window.crypto.subtle && bytes.length >= 32) {
+    const dataToHash = bytes.subarray(0, bytes.length - 32);
+    const hashBuf = await window.crypto.subtle.digest('SHA-256', dataToHash);
+    const hashArr = new Uint8Array(hashBuf);
+    bytes.set(hashArr, bytes.length - 32);
+    console.info('[Web Flasher] Checksum & SHA-256 digest updated.');
+  }
+
+  return bytes.buffer;
+}
+
+if (!window._flasherFetchHooked) {
+  window._flasherFetchHooked = true;
+  const origFetch = window.fetch;
+  window.fetch = async function(...args) {
+    const url = args[0] ? args[0].toString() : '';
+    const response = await origFetch.apply(this, args);
+    if (url.includes('firmware.bin')) {
+      try {
+        const nameToUse = window._customHardwareName || 'CLICKER';
+        const buf = await response.arrayBuffer();
+        const patchedBuf = await patchFirmwareCustomName(buf, nameToUse);
+        return new Response(patchedBuf, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+      } catch (err) {
+        console.error('[Web Flasher] Error patching firmware binary:', err);
+        return response;
+      }
+    }
+    return response;
+  };
+}
 
 document.addEventListener('DOMContentLoaded', async () => {
   initUnsupportedModal();
@@ -601,22 +699,33 @@ function injectDialogStyles(dialog) {
         transform: translateY(-1px) !important;
       }
 
-      /* Clean Minimal Version Pill Badge & Centered Content */
+      /* Interactive Custom Hardware Name Badge (Rounded Rectangle) */
       .modal-cyber-badge {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        gap: 0.5rem;
-        background: rgba(16, 185, 129, 0.08);
-        border: 1px solid rgba(16, 185, 129, 0.35);
-        border-radius: 9999px;
-        padding: 0.35rem 1.1rem;
+        gap: 0.65rem;
+        background: rgba(255, 255, 255, 0.05);
+        border: 1px solid rgba(255, 255, 255, 0.16);
+        border-radius: 8px;
+        padding: 0.4rem 0.9rem;
         font-family: 'Rajdhani', sans-serif;
-        font-size: 0.92rem;
+        font-size: 0.95rem;
         font-weight: 700;
-        letter-spacing: 0.06em;
-        color: #10b981;
+        color: #ffffff;
         margin-bottom: 1.15rem;
+        transition: all 0.2s ease;
+        box-sizing: border-box;
+        max-width: 95%;
+      }
+      .modal-cyber-badge:hover {
+        background: rgba(255, 255, 255, 0.08);
+        border-color: rgba(255, 255, 255, 0.25);
+      }
+      .modal-cyber-badge:focus-within {
+        border-color: rgba(255, 255, 255, 0.4);
+        background: rgba(255, 255, 255, 0.08);
+        box-shadow: 0 0 14px rgba(255, 255, 255, 0.07);
       }
       .pulse-emerald-dot {
         width: 7px;
@@ -625,13 +734,51 @@ function injectDialogStyles(dialog) {
         background: #10b981;
         box-shadow: 0 0 8px #10b981;
         animation: pulse-glow 2s infinite ease-in-out;
+        flex-shrink: 0;
       }
       @keyframes pulse-glow {
         0%, 100% { opacity: 1; transform: scale(1); }
         50% { opacity: 0.4; transform: scale(0.85); }
       }
+      .modal-hardware-name-input {
+        background: transparent !important;
+        border: none !important;
+        outline: none !important;
+        box-shadow: none !important;
+        -webkit-appearance: none !important;
+        appearance: none !important;
+        color: #ffffff !important;
+        font-family: 'Rajdhani', sans-serif !important;
+        font-size: 1.02rem !important;
+        font-weight: 700 !important;
+        letter-spacing: 0.05em !important;
+        text-align: center !important;
+        width: 155px !important;
+        min-width: 130px !important;
+        padding: 0.1rem 0.2rem !important;
+        margin: 0 !important;
+      }
+      .modal-hardware-name-input:focus,
+      .modal-hardware-name-input:focus-visible {
+        outline: none !important;
+        box-shadow: none !important;
+        border: none !important;
+      }
+      .modal-hardware-name-input::placeholder {
+        color: rgba(255, 255, 255, 0.45) !important;
+        text-align: center !important;
+        font-weight: 600 !important;
+        font-size: 0.88rem !important;
+        letter-spacing: 0.03em !important;
+      }
       .badge-ver {
-        color: #ffffff;
+        color: rgba(255, 255, 255, 0.65);
+        font-size: 0.82rem;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+        border-left: 1px solid rgba(255, 255, 255, 0.16);
+        padding-left: 0.55rem;
+        flex-shrink: 0;
       }
 
       .modal-instruction-text {
@@ -918,6 +1065,12 @@ if (typeof customElements !== 'undefined') {
         this._hasStartedFlashing = true;
         this._flashDone = false;
         this._finishHandled = false;
+        if (this.shadowRoot) {
+          const nameInp = this.shadowRoot.querySelector('#modal-hardware-name-input');
+          if (nameInp && nameInp.value && nameInp.value.trim().length > 0) {
+            window._customHardwareName = nameInp.value.trim();
+          }
+        }
         if (window.esploader) {
           window.esploader.baudrate = 460800;
         }
@@ -996,8 +1149,18 @@ if (typeof customElements !== 'undefined') {
           if (contentDiv && !contentDiv.querySelector('#modal-mode-menu')) {
             const ver = (this._manifest && this._manifest.version) ? `v${this._manifest.version}` : 'v0.1.0';
             contentDiv.innerHTML = `
-              <div class="modal-cyber-badge">
+              <div class="modal-cyber-badge" id="modal-pill-container" title="Click to name your hardware">
                 <span class="pulse-emerald-dot"></span>
+                <input
+                  type="text"
+                  id="modal-hardware-name-input"
+                  class="modal-hardware-name-input"
+                  placeholder="Name your Click"
+                  value="${window._customHardwareName || ''}"
+                  maxlength="20"
+                  autocomplete="off"
+                  spellcheck="false"
+                />
                 <span class="badge-ver">${ver}</span>
               </div>
 
@@ -1042,6 +1205,19 @@ if (typeof customElements !== 'undefined') {
                 <span>Turbo upload speed active &bull; ~12 seconds completion</span>
               </div>
             `;
+
+            const nameInput = contentDiv.querySelector('#modal-hardware-name-input');
+            if (nameInput) {
+              nameInput.addEventListener('input', (e) => {
+                window._customHardwareName = e.target.value.trim();
+              });
+              nameInput.addEventListener('click', (e) => {
+                e.stopPropagation();
+              });
+              nameInput.addEventListener('keydown', (e) => {
+                e.stopPropagation();
+              });
+            }
 
             const optUpdate = contentDiv.querySelector('#modal-mode-update');
             const optFactory = contentDiv.querySelector('#modal-mode-factory');

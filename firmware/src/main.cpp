@@ -4,6 +4,7 @@
 // Core System
 #include "system/Display.h"
 #include "system/OSManager.h"
+#include "system/device_info.hpp"
 
 // Modular Applets
 #include "applets/clicker/CounterApplet.h"
@@ -102,16 +103,61 @@ void setup() {
     // Set 400kHz Fast I2C mode for smooth SSD1306 refresh
     Wire.setClock(400000);
 
-    // Boot screen: display bootscreen.png if converted, otherwise fallback to text
+    // Boot screen: display custom device name (default: CLICKER) and "Starting up..."
     display.clearDisplay();
-#ifdef GENERATED_BOOTSCREEN_H
-    display.drawBitmap(0, 0, bootscreen_bmp, BOOTSCREEN_WIDTH, BOOTSCREEN_HEIGHT, SSD1306_WHITE);
-#else
-    ThemeFonts::drawCentered(&Rajdhani24pt7b, "CLICKER", 22);
-    ThemeFonts::drawCentered(&Rajdhani12pt7b, "Starting up...", 48);
-#endif
+
+    const char* bootName = DeviceInfo::getCustomName();
+    if (!bootName || bootName[0] == '\0') {
+        bootName = "CLICKER";
+    }
+
+    const GFXfont* nameFont = &Rajdhani24pt7b;
+    int16_t xA = 0, yA = 0, xB = 0, yB = 0;
+    uint16_t wA = 0, hA = 0, wB = 0, hB = 0;
+    ThemeFonts::measure(nameFont, bootName, xA, yA, wA, hA);
+    if (wA + 1 > 120) {
+        nameFont = &Rajdhani18pt7b;
+        ThemeFonts::measure(nameFont, bootName, xA, yA, wA, hA);
+    }
+    if (wA + 1 > 120) {
+        nameFont = &Rajdhani12pt7b;
+        ThemeFonts::measure(nameFont, bootName, xA, yA, wA, hA);
+    }
+
+    const GFXfont* subFont = &Rajdhani12pt7b;
+    ThemeFonts::measure(subFont, "Starting up...", xB, yB, wB, hB);
+
+    // Treat name and "Starting up..." as a single unified visual group
+    const int16_t gap = 4;
+    const int16_t effectiveWA = static_cast<int16_t>(wA + 1);
+    const int16_t totalH = static_cast<int16_t>(hA + gap + hB);
+    const int16_t topY = static_cast<int16_t>((64 - totalH) / 2);
+
+    // Pixel-perfect baseline cursor calculation for both texts
+    const int16_t cursorYA = static_cast<int16_t>(topY - yA);
+    const int16_t cursorYB = static_cast<int16_t>(topY + hA + gap - yB);
+
+    const int16_t cursorXA = static_cast<int16_t>((128 - effectiveWA) / 2 - xA);
+    const int16_t cursorXB = static_cast<int16_t>((128 - static_cast<int16_t>(wB)) / 2 - xB);
+
+    // Draw device name with thicker / bold weight (1px horizontal overstrike)
+    display.setFont(nameFont);
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(cursorXA, cursorYA);
+    display.print(bootName);
+    display.setCursor(cursorXA + 1, cursorYA);
+    display.print(bootName);
+
+    // Draw subtitle
+    display.setFont(subFont);
+    display.setTextSize(1);
+    display.setTextColor(SSD1306_WHITE);
+    display.setCursor(cursorXB, cursorYB);
+    display.print("Starting up...");
+
     display.display();
-    delay(800);
+    delay(1000);
 
     // Register playable main applets (index 0 is active on boot)
     osManager.registerApplet(&counterApplet);     // index 0: Clicker (Default on boot)
