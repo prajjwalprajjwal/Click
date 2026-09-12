@@ -1,15 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Clicker Firmware Flasher | click.uprajjwal.com.np</title>
-  <meta name="description" content="Web-based firmware updater for Clicker ESP32 device. Fast, safe updates with zero data loss over Web Serial.">
+  <title>Click Firmware Flasher | click.uprajjwal.com.np</title>
+  <meta name="description"
+    content="Web-based firmware updater for Clicker ESP32 device. Fast, safe updates with zero data loss over Web Serial.">
 
   <!-- Google Fonts: Rajdhani & Inter -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&family=Rajdhani:wght@500;600;700&display=swap"
+    rel="stylesheet">
+
+  <!-- ESP32 Turbo Flash Engine Hook (PlatformIO 460,800 Baud Rate) -->
+  <script>
+    (function() {
+      let _esp = null;
+      function applyTurbo(inst) {
+        if (!inst) return;
+        try {
+          inst.baudrate = 460800;
+          console.info('[Click Flasher] Activated 460,800 baud Turbo flash rate.');
+          if (inst.constructor && inst.constructor.prototype && !inst.constructor.prototype._turboHooked) {
+            inst.constructor.prototype._turboHooked = true;
+            const origMain = inst.constructor.prototype.main;
+            if (origMain) {
+              inst.constructor.prototype.main = async function(...args) {
+                this.baudrate = 460800;
+                return origMain.apply(this, args);
+              };
+            }
+          }
+        } catch(e) {
+          console.warn('[Click Flasher] Turbo hook error:', e);
+        }
+      }
+      try {
+        Object.defineProperty(window, 'esploader', {
+          configurable: true,
+          enumerable: true,
+          get() { return _esp; },
+          set(inst) {
+            _esp = inst;
+            applyTurbo(inst);
+          }
+        });
+      } catch(e) {
+        console.warn('[Click Flasher] Could not define esploader property:', e);
+      }
+    })();
+  </script>
 
   <!-- ESP Web Tools Module -->
   <script type="module" src="https://unpkg.com/esp-web-tools@10/dist/web/install-button.js?module"></script>
@@ -35,7 +78,9 @@
       --click-font-mono: 'JetBrains Mono', monospace;
     }
 
-    *, *::before, *::after {
+    *,
+    *::before,
+    *::after {
       box-sizing: border-box;
       margin: 0;
       padding: 0;
@@ -47,7 +92,7 @@
       color: var(--click-text);
       line-height: 1.6;
       min-height: 100vh;
-      background-image: 
+      background-image:
         radial-gradient(ellipse 70% 40% at 50% -10%, rgba(0, 240, 255, 0.12), transparent 70%),
         radial-gradient(ellipse 60% 30% at 85% 95%, rgba(139, 92, 246, 0.08), transparent 70%);
       background-attachment: fixed;
@@ -57,6 +102,24 @@
       max-width: 1040px;
       margin: 0 auto;
       padding: 3rem 1.5rem 5rem;
+      transition: filter 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s cubic-bezier(0.16, 1, 0.3, 1), transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    body.dialog-blur-active {
+      overflow: hidden !important;
+    }
+
+    body.dialog-blur-active .flasher-container,
+    body.dialog-blur-active main,
+    body.dialog-blur-active header,
+    body.dialog-blur-active footer,
+    body.dialog-blur-active aside,
+    body.dialog-blur-active section {
+      filter: blur(12px) brightness(0.65) !important;
+      opacity: 0.65 !important;
+      transform: scale(0.985) !important;
+      pointer-events: none !important;
+      user-select: none !important;
     }
 
     /* Header */
@@ -92,8 +155,17 @@
     }
 
     @keyframes pulse-glow {
-      0%, 100% { opacity: 1; transform: scale(1); }
-      50% { opacity: 0.4; transform: scale(0.85); }
+
+      0%,
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+
+      50% {
+        opacity: 0.4;
+        transform: scale(0.85);
+      }
     }
 
     .flasher-title {
@@ -536,8 +608,154 @@
       color: var(--click-text-muted);
       font-size: 0.82rem;
     }
+
+    /* Mode Selector Styles */
+    .mode-select-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.65rem;
+      margin-top: 0.35rem;
+    }
+
+    .mode-option {
+      display: flex;
+      align-items: flex-start;
+      gap: 0.85rem;
+      padding: 0.85rem 1rem;
+      background: rgba(24, 24, 27, 0.45);
+      border: 1px solid var(--click-border);
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+      user-select: none;
+    }
+
+    .mode-option:hover {
+      background: rgba(39, 39, 42, 0.55);
+      border-color: rgba(255, 255, 255, 0.18);
+    }
+
+    .mode-option.active {
+      background: rgba(16, 185, 129, 0.08);
+      border-color: rgba(16, 185, 129, 0.45);
+      box-shadow: 0 0 20px rgba(16, 185, 129, 0.1);
+    }
+
+    #flasher-mode-factory.active {
+      background: rgba(245, 158, 11, 0.08);
+      border-color: rgba(245, 158, 11, 0.45);
+      box-shadow: 0 0 20px rgba(245, 158, 11, 0.1);
+    }
+
+    .mode-radio {
+      display: none;
+    }
+
+    .mode-radio-custom {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2px solid rgba(113, 113, 122, 0.6);
+      margin-top: 2px;
+      flex-shrink: 0;
+      transition: all 0.2s ease;
+      position: relative;
+    }
+
+    .mode-option.active .mode-radio-custom {
+      border-color: var(--click-emerald);
+    }
+
+    #flasher-mode-factory.active .mode-radio-custom {
+      border-color: var(--click-amber);
+    }
+
+    .mode-option.active .mode-radio-custom::after {
+      content: '';
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: var(--click-emerald);
+    }
+
+    #flasher-mode-factory.active .mode-radio-custom::after {
+      background: var(--click-amber);
+    }
+
+    .mode-text {
+      flex: 1;
+    }
+
+    .mode-header {
+      display: flex;
+      align-items: center;
+      gap: 0.6rem;
+      margin-bottom: 0.2rem;
+    }
+
+    .mode-title {
+      font-family: var(--click-font-display);
+      font-size: 1.05rem;
+      font-weight: 700;
+      color: #fff;
+    }
+
+    .mode-badge-rec {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.15);
+      color: var(--click-emerald);
+      text-transform: uppercase;
+    }
+
+    .mode-badge-warn {
+      font-size: 0.72rem;
+      font-weight: 700;
+      padding: 0.15rem 0.5rem;
+      border-radius: 9999px;
+      background: rgba(245, 158, 11, 0.15);
+      color: var(--click-amber);
+      text-transform: uppercase;
+    }
+
+    .mode-description {
+      font-size: 0.85rem;
+      color: var(--click-text-secondary);
+      line-height: 1.4;
+    }
+
+    .mode-description code {
+      font-family: var(--click-font-mono);
+      font-size: 0.8rem;
+      padding: 0.1rem 0.35rem;
+      background: rgba(255, 255, 255, 0.06);
+      border-radius: 4px;
+      color: var(--click-cyan);
+    }
+
+    :root,
+    ewt-install-dialog {
+      --md-dialog-container-color: #0c1017 !important;
+      --md-dialog-headline-color: #fafafa !important;
+      --md-dialog-supporting-text-color: #a1a1aa !important;
+      --md-sys-color-surface-container-high: #0c1017 !important;
+      --md-sys-color-surface: #0c1017 !important;
+      --md-sys-color-on-surface: #fafafa !important;
+      --md-sys-color-on-surface-variant: #a1a1aa !important;
+      --md-sys-color-primary: #00f0ff !important;
+      --md-sys-color-outline: rgba(0, 240, 255, 0.3) !important;
+      --md-circular-progress-active-indicator-color: #00f0ff !important;
+      --text-color: #fafafa !important;
+      font-family: var(--click-font-sans) !important;
+    }
   </style>
 </head>
+
 <body>
 
   <div class="flasher-container" id="click-flasher-root" data-base-path="/releases">
@@ -561,7 +779,8 @@
       </div>
       <div class="nvs-text">
         <h4>100% NVS Data Preserved</h4>
-        <p>Updates write strictly to address <code>0x10000</code>. Your lifetime click counters, unlock flags, and milestone data in NVS (<code>0x9000</code>) are untouched.</p>
+        <p>Updates write strictly to address <code>0x10000</code>. Your lifetime click counters, unlock flags, and
+          milestone data in NVS (<code>0x9000</code>) are untouched.</p>
       </div>
     </section>
 
@@ -576,7 +795,8 @@
             </svg>
             <span>Web Serial Update</span>
           </h3>
-          <span style="font-size:0.78rem;color:var(--click-text-muted);font-family:var(--click-font-mono);">ESP32-WROOM</span>
+          <span
+            style="font-size:0.78rem;color:var(--click-text-muted);font-family:var(--click-font-mono);">ESP32-WROOM</span>
         </div>
 
         <div id="flasher-browser-status" class="browser-badge supported">
@@ -605,26 +825,16 @@
           </div>
         </div>
 
-        <!-- Installation Choices Explainer -->
-        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:10px;padding:0.85rem 1rem;margin-bottom:1.25rem;font-size:0.82rem;">
-          <div style="font-weight:600;color:#fff;margin-bottom:0.35rem;display:flex;align-items:center;gap:0.4rem;">
-            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>
-            <span>Installation Options</span>
-          </div>
-          <div style="display:flex;flex-direction:column;gap:0.35rem;color:var(--click-text-secondary);">
-            <div><strong style="color:var(--click-emerald);">Option A: Standard Update (Preserve Stats)</strong><br>Flashes application binary at offset 0x10000. Preserves all stored click counts and local settings in NVS.</div>
-            <div><strong style="color:var(--click-amber);">Option B: Factory Reset (Clean Install)</strong><br>Performs full chip erase and writes complete image at offset 0x0. Resets device memory to factory state.</div>
-          </div>
-        </div>
-
         <!-- Serial Port Advisory -->
-        <div style="background:rgba(0, 240, 255, 0.05);border:1px solid rgba(0, 240, 255, 0.25);border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1.25rem;font-size:0.82rem;color:var(--click-text-secondary);">
-          <strong style="color:var(--click-cyan);">Important:</strong> Close VS Code's <strong>Serial Monitor</strong> or active terminals before clicking below to avoid COM port locking.
+        <div
+          style="background:rgba(0, 240, 255, 0.05);border:1px solid rgba(0, 240, 255, 0.25);border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1.25rem;font-size:0.82rem;color:var(--click-text-secondary);">
+          <strong style="color:var(--click-cyan);">Important:</strong> Close VS Code's <strong>Serial Monitor</strong>
+          or active terminals before clicking below to avoid COM port locking.
         </div>
 
         <!-- ESP Web Tools Install Button Custom Element -->
         <div>
-          <esp-web-install-button id="flasher-install-button" manifest="manifest.json" baud-rate="115200">
+          <esp-web-install-button id="flasher-install-button" manifest="manifest.json" baud-rate="460800">
             <button slot="activate" class="btn-flash" id="btn-flash-activate">
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
                 <circle cx="12" cy="12" r="10"></circle>
@@ -633,10 +843,12 @@
               </svg>
               <span>Connect & Flash Device</span>
             </button>
-            <div slot="unsupported" style="padding:0.75rem;background:rgba(245,158,11,0.1);border-radius:8px;color:var(--click-amber);font-size:0.85rem;text-align:center;">
+            <div slot="unsupported"
+              style="padding:0.75rem;background:rgba(245,158,11,0.1);border-radius:8px;color:var(--click-amber);font-size:0.85rem;text-align:center;">
               Web Serial is not supported on this browser. Please open in Chrome / Edge or use manual options below.
             </div>
-            <div slot="not-allowed" style="padding:0.75rem;background:rgba(244,63,94,0.1);border-radius:8px;color:#f43f5e;font-size:0.85rem;text-align:center;">
+            <div slot="not-allowed"
+              style="padding:0.75rem;background:rgba(244,63,94,0.1);border-radius:8px;color:#f43f5e;font-size:0.85rem;text-align:center;">
               Web Serial requires HTTPS or localhost.
             </div>
           </esp-web-install-button>
@@ -654,7 +866,8 @@
             </svg>
             <span>Flashing Instructions</span>
           </h3>
-          <span style="font-size:0.78rem;color:var(--click-text-muted);font-family:var(--click-font-mono);">HOW-TO</span>
+          <span
+            style="font-size:0.78rem;color:var(--click-text-muted);font-family:var(--click-font-mono);">HOW-TO</span>
         </div>
 
         <ul class="steps">
@@ -681,8 +894,10 @@
           </li>
         </ul>
 
-        <div style="margin-top:1.25rem;padding:0.75rem;border-radius:8px;background:rgba(0,240,255,0.05);border:1px solid rgba(0,240,255,0.2);font-size:0.8rem;color:var(--click-text-secondary);">
-          <strong style="color:var(--click-cyan);">Tip:</strong> If connection times out, press and hold the <strong>BOOT</strong> button on your board while clicking Connect.
+        <div
+          style="margin-top:1.25rem;padding:0.75rem;border-radius:8px;background:rgba(0,240,255,0.05);border:1px solid rgba(0,240,255,0.2);font-size:0.8rem;color:var(--click-text-secondary);">
+          <strong style="color:var(--click-cyan);">Tip:</strong> If connection times out, press and hold the
+          <strong>BOOT</strong> button on your board while clicking Connect.
         </div>
       </aside>
     </main>
@@ -698,90 +913,109 @@
         <span>Manual & Browser Fallbacks</span>
       </h2>
       <!-- Fallbacks & Alternative Methods -->
-    <section class="manual-section">
-      <h3 style="font-family:var(--click-font-display);font-size:1.35rem;font-weight:700;margin-bottom:0.4rem;color:#fff;">
-        Alternative Installation & Manual Options
-      </h3>
-      <p style="font-size:0.88rem;color:var(--click-text-secondary);margin-bottom:1.25rem;">
-        For browsers without Web Serial (Firefox, Safari, iOS), use one of the supported methods below:
-      </p>
-
-      <!-- Third-Party Notice Box -->
-      <div style="background:rgba(248,81,73,0.06);border:1px solid rgba(248,81,73,0.3);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:1.5rem;font-size:0.84rem;line-height:1.5;color:var(--click-text-secondary);">
-        <strong style="color:#f85149;">Notice:</strong> Flashing via external utilities (e.g., esphome.io) or running <code>esptool.py erase_flash</code> will erase the <code>0x9000</code> NVS partition and clear device memory. Use this installer or <code>flash_device.bat</code> to maintain local stats.
-      </div>
-
-      <div class="fallback-grid">
-        <div class="fallback-box">
-          <div>
-            <h4>Option 1: Switch Browser (Safe)</h4>
-            <p>Open this page in <strong>Google Chrome</strong>, <strong>Microsoft Edge</strong>, or <strong>Brave</strong> for data-preserving web updates.</p>
-          </div>
-          <span style="font-size:0.75rem;color:var(--click-emerald);">Keeps All Click Stats</span>
-        </div>
-
-        <div class="fallback-box">
-          <div>
-            <h4>Option 2: web.esphome.io (Wipes Data)</h4>
-            <p><strong style="color:var(--click-rose);">Notice:</strong> Erases all user stats. Flash <code>factory_firmware.bin</code> (Offset <code>0x0</code>):</p>
-          </div>
-          <a href="https://web.esphome.io" target="_blank" rel="noopener" class="btn-download" style="color:var(--click-rose);border-color:rgba(244,63,94,0.3);">Open web.esphome.io (Full Erase) &rarr;</a>
-        </div>
-
-        <div class="fallback-box">
-          <div>
-            <h4>Option 3: esptool.py (CLI)</h4>
-            <p>Flash the merged factory image directly to offset <strong>0x0</strong>:</p>
-            <div class="code-display">
-              <button class="copy-button" data-copy-target="cli-cmd">Copy</button>
-              <pre id="cli-cmd">esptool.py --chip esp32 --port COMx write_flash 0x0 factory_firmware.bin</pre>
-            </div>
-          </div>
-          <span style="font-size:0.75rem;color:var(--click-emerald);">Or run <code>flash_device.bat</code> in the repository.</span>
-        </div>
-      </div>
-
-      <!-- Binary Differences Callout -->
-      <div style="background:rgba(0,240,255,0.04);border:1px solid rgba(0,240,255,0.2);border-radius:12px;padding:0.9rem 1.15rem;margin-bottom:1.5rem;font-size:0.84rem;">
-        <h4 style="color:var(--click-cyan);font-family:var(--click-font-display);font-size:1.05rem;font-weight:700;margin-bottom:0.35rem;">
-          Manual Binary Files & Data Safety Notice
-        </h4>
-        <p style="color:var(--click-text-secondary);margin-bottom:0.4rem;">
-          &bull; <strong style="color:var(--click-emerald);">factory_firmware.bin (Offset 0x0):</strong> All-in-one image with bootloader and partitions for web.esphome.io or factory resets.<br>
-          &bull; <strong style="color:var(--click-cyan);">firmware.bin (Offset 0x10000):</strong> App-only update that preserves all lifetime click counters and milestone stats in NVS (0x9000).<br>
-          &bull; <strong style="color:#fff;">Desktop CLI:</strong> Use <code>.\flash_device.bat</code> to interactively choose whether to keep stats or erase.
+      <section class="manual-section">
+        <h3
+          style="font-family:var(--click-font-display);font-size:1.35rem;font-weight:700;margin-bottom:0.4rem;color:#fff;">
+          Alternative Installation & Manual Options
+        </h3>
+        <p style="font-size:0.88rem;color:var(--click-text-secondary);margin-bottom:1.25rem;">
+          For browsers without Web Serial (Firefox, Safari, iOS), use one of the supported methods below:
         </p>
-      </div>
 
-      <!-- Downloads Table -->
-      <h3 style="font-family:var(--click-font-display);font-size:1.3rem;font-weight:700;margin-bottom:0.75rem;color:#fff;">
-        Recent Firmware Binaries (Last 5 Releases)
-      </h3>
-      <div class="table-container">
-        <table class="firmware-table">
-          <thead>
-            <tr>
-              <th>Version Tag</th>
-              <th>Offset</th>
-              <th>Size</th>
-              <th style="text-align:right;">Binary Download</th>
-            </tr>
-          </thead>
-          <tbody id="flasher-table-body">
-            <!-- Populated by JS -->
-          </tbody>
-        </table>
-      </div>
-    </section>
+        <!-- Third-Party Notice Box -->
+        <div
+          style="background:rgba(248,81,73,0.06);border:1px solid rgba(248,81,73,0.3);border-radius:10px;padding:0.9rem 1.1rem;margin-bottom:1.5rem;font-size:0.84rem;line-height:1.5;color:var(--click-text-secondary);">
+          <strong style="color:#f85149;">Notice:</strong> Flashing via external utilities (e.g., esphome.io) or running
+          <code>esptool.py erase_flash</code> will erase the <code>0x9000</code> NVS partition and clear device memory.
+          Use this installer or <code>flash_device.bat</code> to maintain local stats.
+        </div>
 
-    <!-- Footer -->
-    <footer class="flasher-footer">
-      <p>Clicker ESP32 Project &bull; <a href="https://click.uprajjwal.com.np" style="color:var(--click-cyan);text-decoration:none;">click.uprajjwal.com.np</a> &bull; Powered by ESP Web Tools</p>
-    </footer>
+        <div class="fallback-grid">
+          <div class="fallback-box">
+            <div>
+              <h4>Option 1: Switch Browser (Safe)</h4>
+              <p>Open this page in <strong>Google Chrome</strong>, <strong>Microsoft Edge</strong>, or
+                <strong>Brave</strong> for data-preserving web updates.
+              </p>
+            </div>
+            <span style="font-size:0.75rem;color:var(--click-emerald);">Keeps All Click Stats</span>
+          </div>
+
+          <div class="fallback-box">
+            <div>
+              <h4>Option 2: web.esphome.io (Wipes Data)</h4>
+              <p><strong style="color:var(--click-rose);">Notice:</strong> Erases all user stats. Flash
+                <code>factory_firmware.bin</code> (Offset <code>0x0</code>):
+              </p>
+            </div>
+            <a href="https://web.esphome.io" target="_blank" rel="noopener" class="btn-download"
+              style="color:var(--click-rose);border-color:rgba(244,63,94,0.3);">Open web.esphome.io (Full Erase)
+              &rarr;</a>
+          </div>
+
+          <div class="fallback-box">
+            <div>
+              <h4>Option 3: esptool.py (CLI)</h4>
+              <p>Flash the merged factory image directly to offset <strong>0x0</strong>:</p>
+              <div class="code-display">
+                <button class="copy-button" data-copy-target="cli-cmd">Copy</button>
+                <pre id="cli-cmd">esptool.py --chip esp32 --port COMx write_flash 0x0 factory_firmware.bin</pre>
+              </div>
+            </div>
+            <span style="font-size:0.75rem;color:var(--click-emerald);">Or run <code>flash_device.bat</code> in the
+              repository.</span>
+          </div>
+        </div>
+
+        <!-- Binary Differences Callout -->
+        <div
+          style="background:rgba(0,240,255,0.04);border:1px solid rgba(0,240,255,0.2);border-radius:12px;padding:0.9rem 1.15rem;margin-bottom:1.5rem;font-size:0.84rem;">
+          <h4
+            style="color:var(--click-cyan);font-family:var(--click-font-display);font-size:1.05rem;font-weight:700;margin-bottom:0.35rem;">
+            Manual Binary Files & Data Safety Notice
+          </h4>
+          <p style="color:var(--click-text-secondary);margin-bottom:0.4rem;">
+            &bull; <strong style="color:var(--click-emerald);">factory_firmware.bin (Offset 0x0):</strong> All-in-one
+            image with bootloader and partitions for web.esphome.io or factory resets.<br>
+            &bull; <strong style="color:var(--click-cyan);">firmware.bin (Offset 0x10000):</strong> App-only update that
+            preserves all lifetime click counters and milestone stats in NVS (0x9000).<br>
+            &bull; <strong style="color:#fff;">Desktop CLI:</strong> Use <code>.\flash_device.bat</code> to
+            interactively choose whether to keep stats or erase.
+          </p>
+        </div>
+
+        <!-- Downloads Table -->
+        <h3
+          style="font-family:var(--click-font-display);font-size:1.3rem;font-weight:700;margin-bottom:0.75rem;color:#fff;">
+          Recent Firmware Binaries (Last 5 Releases)
+        </h3>
+        <div class="table-container">
+          <table class="firmware-table">
+            <thead>
+              <tr>
+                <th>Version Tag</th>
+                <th>Offset</th>
+                <th>Size</th>
+                <th style="text-align:right;">Binary Download</th>
+              </tr>
+            </thead>
+            <tbody id="flasher-table-body">
+              <!-- Populated by JS -->
+            </tbody>
+          </table>
+        </div>
+      </section>
+
+      <!-- Footer -->
+      <footer class="flasher-footer">
+        <p>Clicker ESP32 Project &bull; <a href="https://click.uprajjwal.com.np"
+            style="color:var(--click-cyan);text-decoration:none;">click.uprajjwal.com.np</a> &bull; Powered by ESP Web
+          Tools</p>
+      </footer>
   </div>
 
   <script>
-    (function() {
+    (function () {
       const DEFAULT_VERSIONS = [
         { tag: "v0.1.0", version: "0.1.0", manifest: "releases/v0.1.0/manifest.json", bin: "releases/v0.1.0/firmware.bin", size: 567984, is_latest: true },
         { tag: "v0.0.1", version: "0.0.1", manifest: "releases/v0.0.1/manifest.json", bin: "releases/v0.0.1/firmware.bin", size: 373216, is_latest: false }
@@ -797,6 +1031,835 @@
         populateSelect();
         renderTable();
         initCopy();
+      }
+
+      function applyInnerDialogTheme(ewDialog) {
+        if (!ewDialog || !ewDialog.shadowRoot) return;
+        if (ewDialog.shadowRoot.querySelector('#clicker-inner-dialog-theme')) return;
+
+        const innerStyle = document.createElement('style');
+        innerStyle.id = 'clicker-inner-dialog-theme';
+        innerStyle.textContent = `
+          dialog {
+            background: transparent !important;
+            border: none !important;
+            outline: none !important;
+            overflow: visible !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            justify-content: center !important;
+            margin: auto !important;
+            padding: 0 !important;
+            width: auto !important;
+            height: auto !important;
+            max-width: min(520px, 92vw) !important;
+            max-height: 90vh !important;
+            z-index: 9999 !important;
+            pointer-events: auto !important;
+          }
+          .container {
+            background-color: #09090b !important;
+            background-image:
+              radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px),
+              linear-gradient(180deg, #111115 0%, #09090b 100%) !important;
+            background-size: 24px 24px, 100% 100% !important;
+            border: 1.5px solid rgba(255, 255, 255, 0.22) !important;
+            border-radius: 20px !important;
+            box-shadow: 0 30px 80px rgba(0, 0, 0, 0.95), 0 0 40px rgba(255, 255, 255, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.22) !important;
+            width: min(500px, 90vw) !important;
+            max-width: 500px !important;
+            height: auto !important;
+            min-height: auto !important;
+            max-height: 85vh !important;
+            flex-grow: 0 !important;
+            flex-shrink: 0 !important;
+            padding: 1.75rem 2rem 1.6rem !important;
+            box-sizing: border-box !important;
+            overflow: hidden !important;
+            position: relative !important;
+            z-index: 3 !important;
+            pointer-events: auto !important;
+            cursor: default !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: stretch !important;
+            justify-content: flex-start !important;
+          }
+          .container::before {
+            display: none !important;
+          }
+          .scrim {
+            position: fixed !important;
+            inset: 0 !important;
+            background: rgba(0, 0, 0, 0.5) !important;
+            backdrop-filter: blur(12px) !important;
+            -webkit-backdrop-filter: blur(12px) !important;
+            pointer-events: auto !important;
+            cursor: pointer !important;
+            z-index: 1 !important;
+          }
+          .scroller {
+            overflow: visible !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            width: 100% !important;
+          }
+          .headline {
+            padding: 0 !important;
+            margin: 0 0 1.1rem 0 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            position: relative !important;
+            width: 100% !important;
+            text-align: center !important;
+          }
+          .headline .text, h2, h2#headline, slot[name="headline"]::slotted(*) {
+            width: 100% !important;
+            text-align: center !important;
+            justify-content: center !important;
+            align-items: center !important;
+            display: flex !important;
+            font-family: 'Rajdhani', sans-serif !important;
+            font-size: 1.55rem !important;
+            font-weight: 700 !important;
+            letter-spacing: 0.08em !important;
+            color: #ffffff !important;
+            text-transform: uppercase !important;
+            padding: 0 !important;
+            margin: 0 auto !important;
+            box-sizing: border-box !important;
+          }
+          slot[name="headline"]::slotted(div) {
+            width: 100% !important;
+            text-align: center !important;
+            justify-content: center !important;
+            align-items: center !important;
+            display: flex !important;
+            padding: 0 !important;
+            padding-right: 0 !important;
+            padding-left: 0 !important;
+            margin: 0 auto !important;
+            box-sizing: border-box !important;
+          }
+          .headline ew-icon-button, slot[name="headline"]::slotted(ew-icon-button) {
+            position: absolute !important;
+            right: 0 !important;
+            top: 50% !important;
+            transform: translateY(-50%) !important;
+            color: #94a3b8 !important;
+          }
+          .content {
+            padding: 0 !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            text-align: center !important;
+            width: 100% !important;
+            color: #cbd5e1 !important;
+          }
+          slot[name="content"]::slotted(*) {
+            width: 100% !important;
+            display: flex !important;
+            flex-direction: column !important;
+            align-items: center !important;
+            text-align: center !important;
+            box-sizing: border-box !important;
+          }
+          .actions, slot[name="actions"]::slotted(*) {
+            display: flex !important;
+            justify-content: center !important;
+            align-items: center !important;
+            gap: 1.25rem !important;
+            padding: 1.25rem 0 0.15rem 0 !important;
+            margin: 0 !important;
+            width: 100% !important;
+          }
+        `;
+        ewDialog.shadowRoot.appendChild(innerStyle);
+
+        // Handle clicking outside the popup window to close and return home
+        const closePopup = () => {
+          const ewt = ewDialog.closest('ewt-install-dialog') || document.querySelector('ewt-install-dialog');
+          if (ewt && ewt._hasStartedFlashing) {
+            return;
+          }
+          if (ewt && ewt._closeDialog) {
+            ewt._closeDialog();
+          } else {
+            document.body.classList.remove('dialog-blur-active');
+            if (ewDialog.close) ewDialog.close();
+            const parent = ewDialog.getRootNode();
+            if (parent && parent.host) parent.host.remove();
+          }
+        };
+
+        const scrimEl = ewDialog.shadowRoot.querySelector('.scrim');
+        if (scrimEl && !scrimEl._closeHooked) {
+          scrimEl._closeHooked = true;
+          scrimEl.addEventListener('click', (e) => {
+            e.stopPropagation();
+            e.preventDefault();
+            closePopup();
+          });
+        }
+
+        const dialogEl = ewDialog.shadowRoot.querySelector('dialog');
+        if (dialogEl && !dialogEl._closeHooked) {
+          dialogEl._closeHooked = true;
+          dialogEl.addEventListener('click', (e) => {
+            const container = ewDialog.shadowRoot.querySelector('.container');
+            const path = e.composedPath();
+            // If the click originated inside the card (or on slotted buttons like INSTALL), DO NOTHING!
+            if (container && (e.target === container || path.includes(container))) {
+              return;
+            }
+            e.stopPropagation();
+            e.preventDefault();
+            closePopup();
+          });
+        }
+      }
+
+      function injectStyles(dialog) {
+        if (!dialog || !dialog.shadowRoot) return;
+        if (!dialog.shadowRoot.querySelector('#flasher-dialog-style')) {
+          const st = document.createElement('style');
+          st.id = 'flasher-dialog-style';
+          st.textContent = `
+            :host {
+              --md-dialog-container-color: #09090b !important;
+              --md-dialog-headline-color: #fafafa !important;
+              --md-dialog-supporting-text-color: #a1a1aa !important;
+              --md-sys-color-surface-container-high: #09090b !important;
+              --md-sys-color-surface: #09090b !important;
+              --md-sys-color-on-surface: #fafafa !important;
+              --md-sys-color-on-surface-variant: #a1a1aa !important;
+              --md-sys-color-primary: #10b981 !important;
+              --md-sys-color-outline: rgba(255, 255, 255, 0.22) !important;
+              --md-circular-progress-active-indicator-color: #10b981 !important;
+              --text-color: #fafafa !important;
+              font-family: 'Rajdhani', 'Plus Jakarta Sans', 'Inter', -apple-system, sans-serif !important;
+              pointer-events: auto !important;
+            }
+            ew-dialog {
+              --md-dialog-container-color: #09090b !important;
+              --md-dialog-container-shape: 22px !important;
+              pointer-events: auto !important;
+            }
+            div[slot="headline"] {
+              font-family: 'Rajdhani', sans-serif !important;
+              font-size: 1.55rem !important;
+              font-weight: 700 !important;
+              color: #ffffff !important;
+              letter-spacing: 0.08em !important;
+              text-transform: uppercase !important;
+              text-align: center !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              width: 100% !important;
+              padding: 0 !important;
+              padding-right: 0 !important;
+              padding-left: 0 !important;
+              margin: 0 auto !important;
+              box-sizing: border-box !important;
+            }
+            ew-icon-button[slot="headline"] {
+              position: absolute !important;
+              right: 1.25rem !important;
+              top: 1.25rem !important;
+            }
+            ew-icon-button[slot="headline"] svg {
+              color: #94a3b8 !important;
+              transition: color 0.2s ease !important;
+            }
+            ew-icon-button[slot="headline"]:hover svg {
+              color: #10b981 !important;
+            }
+            ewt-page-progress {
+              color: #a1a1aa !important;
+              font-family: 'Rajdhani', 'JetBrains Mono', monospace !important;
+              font-size: 1.25rem !important;
+              display: flex !important;
+              flex-direction: column !important;
+              align-items: center !important;
+              justify-content: center !important;
+              padding: 2.4rem 1.5rem !important;
+              text-align: center !important;
+              gap: 1.25rem !important;
+            }
+            ew-circular-progress {
+              --md-circular-progress-active-indicator-color: #10b981 !important;
+              --md-circular-progress-size: 64px !important;
+            }
+            ewt-page-message {
+              color: #fafafa !important;
+              font-family: 'Rajdhani', sans-serif !important;
+              font-size: 1.2rem !important;
+              padding: 2.2rem 1.5rem !important;
+              text-align: center !important;
+            }
+            ewt-page-message .icon {
+              color: #10b981 !important;
+              font-size: 2rem !important;
+            }
+
+            /* Centered Actions Buttons */
+            div[slot="actions"] {
+              display: flex !important;
+              justify-content: center !important;
+              align-items: center !important;
+              gap: 1.25rem !important;
+              width: 100% !important;
+              padding-top: 0.5rem !important;
+            }
+            ew-text-button {
+              --md-text-button-label-text-color: #ffffff !important;
+              display: inline-flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              font-family: 'Rajdhani', sans-serif !important;
+              font-weight: 700 !important;
+              font-size: 1.05rem !important;
+              letter-spacing: 0.05em !important;
+              text-transform: uppercase !important;
+              pointer-events: auto !important;
+              cursor: pointer !important;
+              transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+            }
+            ew-text-button:first-child {
+              --md-text-button-label-text-color: #94a3b8 !important;
+              background: rgba(255, 255, 255, 0.05) !important;
+              border: 1.5px solid rgba(255, 255, 255, 0.14) !important;
+              border-radius: 12px !important;
+              padding: 0.45rem 1.5rem !important;
+              min-width: 110px !important;
+            }
+            ew-text-button:first-child:hover {
+              --md-text-button-label-text-color: #ffffff !important;
+              background: rgba(255, 255, 255, 0.1) !important;
+              border-color: rgba(255, 255, 255, 0.3) !important;
+            }
+            ew-text-button:last-child {
+              --md-text-button-label-text-color: #09090b !important;
+              color: #09090b !important;
+              background: #ffffff !important;
+              border: 1.5px solid #ffffff !important;
+              border-radius: 12px !important;
+              padding: 0.45rem 2.2rem !important;
+              min-width: 170px !important;
+              box-shadow: 0 0 24px rgba(255, 255, 255, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+            }
+            ew-text-button:last-child:hover {
+              background: #f4f4f5 !important;
+              border-color: #ffffff !important;
+              filter: brightness(1.02) !important;
+              box-shadow: 0 0 35px rgba(255, 255, 255, 0.35) !important;
+              transform: translateY(-1px) !important;
+            }
+
+            /* Clean Minimal Version Pill Badge & Centered Content */
+            .modal-cyber-badge {
+              display: inline-flex;
+              align-items: center;
+              justify-content: center;
+              gap: 0.5rem;
+              background: rgba(16, 185, 129, 0.08);
+              border: 1px solid rgba(16, 185, 129, 0.35);
+              border-radius: 9999px;
+              padding: 0.35rem 1.1rem;
+              font-family: 'Rajdhani', sans-serif;
+              font-size: 0.92rem;
+              font-weight: 700;
+              letter-spacing: 0.06em;
+              color: #10b981;
+              margin-bottom: 1.15rem;
+            }
+            .pulse-emerald-dot {
+              width: 7px;
+              height: 7px;
+              border-radius: 50%;
+              background: #10b981;
+              box-shadow: 0 0 8px #10b981;
+              animation: pulse-glow 2s infinite ease-in-out;
+            }
+            @keyframes pulse-glow {
+              0%, 100% { opacity: 1; transform: scale(1); }
+              50% { opacity: 0.4; transform: scale(0.85); }
+            }
+            .badge-ver {
+              color: #ffffff;
+            }
+
+            .modal-instruction-text {
+              font-family: 'Inter', -apple-system, sans-serif;
+              font-size: 0.92rem;
+              color: #cbd5e1;
+              margin-bottom: 1.35rem;
+              text-align: center;
+              line-height: 1.5;
+            }
+
+            /* Spacious Mode Selector Cards */
+            .modal-mode-wrapper {
+              display: flex;
+              flex-direction: column;
+              gap: 0.85rem;
+              width: 100%;
+              margin-bottom: 1.35rem;
+              text-align: left;
+            }
+            .modal-mode-option {
+              display: flex;
+              align-items: flex-start;
+              gap: 1rem;
+              padding: 1.1rem 1.25rem;
+              background: rgba(255, 255, 255, 0.03);
+              border: 1.5px solid rgba(255, 255, 255, 0.1);
+              border-radius: 14px;
+              cursor: pointer;
+              transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+              user-select: none;
+              pointer-events: auto !important;
+              box-sizing: border-box;
+            }
+            .modal-mode-option:hover {
+              background: rgba(255, 255, 255, 0.06);
+              border-color: rgba(255, 255, 255, 0.25);
+              transform: translateY(-1px);
+            }
+            .modal-mode-option.active {
+              background: rgba(16, 185, 129, 0.09) !important;
+              border-color: rgba(16, 185, 129, 0.6) !important;
+              box-shadow: 0 0 25px rgba(16, 185, 129, 0.18), inset 0 0 15px rgba(16, 185, 129, 0.05) !important;
+            }
+            #modal-mode-factory.active {
+              background: rgba(245, 158, 11, 0.09) !important;
+              border-color: rgba(245, 158, 11, 0.6) !important;
+              box-shadow: 0 0 25px rgba(245, 158, 11, 0.18), inset 0 0 15px rgba(245, 158, 11, 0.05) !important;
+            }
+            .modal-radio-dot {
+              width: 22px !important;
+              height: 22px !important;
+              border-radius: 50% !important;
+              border: 2px solid #52525b !important;
+              margin-top: 2px !important;
+              flex-shrink: 0 !important;
+              display: flex !important;
+              align-items: center !important;
+              justify-content: center !important;
+              box-sizing: border-box !important;
+              transition: all 0.2s ease !important;
+              background: transparent !important;
+            }
+            .modal-mode-option.active .modal-radio-dot {
+              border-color: #10b981 !important;
+            }
+            #modal-mode-factory.active .modal-radio-dot {
+              border-color: #f59e0b !important;
+            }
+            .modal-radio-dot::after {
+              content: '' !important;
+              display: none !important;
+              width: 10px !important;
+              height: 10px !important;
+              border-radius: 50% !important;
+              margin: 0 !important;
+              padding: 0 !important;
+              transition: all 0.2s ease !important;
+            }
+            .modal-mode-option.active .modal-radio-dot::after {
+              display: block !important;
+              background: #10b981 !important;
+              box-shadow: 0 0 8px #10b981 !important;
+            }
+            #modal-mode-factory.active .modal-radio-dot::after {
+              display: block !important;
+              background: #f59e0b !important;
+              box-shadow: 0 0 8px #f59e0b !important;
+            }
+            .modal-option-body {
+              flex: 1;
+            }
+            .modal-mode-header {
+              display: flex;
+              align-items: center;
+              justify-content: space-between;
+              gap: 0.5rem;
+              margin-bottom: 0.35rem;
+            }
+            .modal-mode-title {
+              font-family: 'Rajdhani', sans-serif;
+              font-size: 1.15rem;
+              font-weight: 700;
+              color: #ffffff;
+              letter-spacing: 0.02em;
+            }
+            .modal-badge-rec {
+              font-size: 0.7rem;
+              font-weight: 700;
+              font-family: 'Rajdhani', sans-serif;
+              letter-spacing: 0.04em;
+              text-transform: uppercase;
+              background: rgba(16, 185, 129, 0.2);
+              border: 1px solid rgba(16, 185, 129, 0.45);
+              color: #10b981;
+              padding: 3px 8px;
+              border-radius: 9999px;
+            }
+            .modal-badge-warn {
+              font-size: 0.7rem;
+              font-weight: 700;
+              font-family: 'Rajdhani', sans-serif;
+              letter-spacing: 0.04em;
+              text-transform: uppercase;
+              background: rgba(245, 158, 11, 0.2);
+              border: 1px solid rgba(245, 158, 11, 0.45);
+              color: #f59e0b;
+              padding: 3px 8px;
+              border-radius: 9999px;
+            }
+            .modal-mode-desc {
+              font-size: 0.84rem;
+              color: #94a3b8;
+              line-height: 1.45;
+              font-family: 'Inter', -apple-system, sans-serif;
+            }
+            .modal-mode-desc code {
+              font-family: 'JetBrains Mono', monospace;
+              font-size: 0.8rem;
+              color: #00f0ff;
+              background: rgba(0, 240, 255, 0.1);
+              padding: 1px 4px;
+              border-radius: 4px;
+            }
+            .modal-footer-note {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              gap: 0.5rem;
+              font-size: 0.8rem;
+              color: #64748b;
+              font-family: 'Inter', -apple-system, sans-serif;
+            }
+            .modal-footer-note svg {
+              color: #10b981;
+              flex-shrink: 0;
+            }
+          `;
+          dialog.shadowRoot.appendChild(st);
+        }
+        const inner = dialog.shadowRoot.querySelector('ew-dialog');
+        if (inner) {
+          applyInnerDialogTheme(inner);
+        }
+      }
+
+      if (typeof customElements !== 'undefined') {
+        customElements.whenDefined('ew-dialog').then(() => {
+          const EwDialog = customElements.get('ew-dialog');
+          if (EwDialog && EwDialog.prototype) {
+            const origConnected = EwDialog.prototype.connectedCallback;
+            EwDialog.prototype.connectedCallback = function() {
+              if (origConnected) origConnected.call(this);
+              applyInnerDialogTheme(this);
+            };
+            const origUpdate = EwDialog.prototype.update;
+            if (origUpdate) {
+              EwDialog.prototype.update = function(...args) {
+                origUpdate.call(this, ...args);
+                applyInnerDialogTheme(this);
+              };
+            }
+          }
+        });
+
+        // Hook ewt-page-progress to completely eliminate 'This will take 2 minutes' misinformation
+        customElements.whenDefined('ewt-page-progress').then(() => {
+          const EwtPageProgress = customElements.get('ewt-page-progress');
+          if (EwtPageProgress && EwtPageProgress.prototype) {
+            const origUpdated = EwtPageProgress.prototype.updated;
+            EwtPageProgress.prototype.updated = function(changedProps) {
+              if (origUpdated) origUpdated.call(this, changedProps);
+              if (this.shadowRoot) {
+                const walker = document.createTreeWalker(this.shadowRoot, NodeFilter.SHOW_TEXT);
+                let n;
+                while ((n = walker.nextNode())) {
+                  if (/This will take|2 minutes|a minute|Keep this page visible|slow down/i.test(n.nodeValue)) {
+                    n.nodeValue = '';
+                  }
+                }
+              }
+            };
+            const origWillUpdate = EwtPageProgress.prototype.willUpdate;
+            EwtPageProgress.prototype.willUpdate = function (changedProps) {
+              if (this.label && typeof this.label === 'object') {
+                this.label = '';
+              } else if (typeof this.label === 'string' && /This will take|2 minutes|a minute|Keep this page visible|slow down/i.test(this.label)) {
+                this.label = '';
+              }
+              if (origWillUpdate) origWillUpdate.call(this, changedProps);
+            };
+          }
+        });
+
+        customElements.whenDefined('ewt-install-dialog').then(() => {
+          const EwtDialog = customElements.get('ewt-install-dialog');
+          if (EwtDialog && EwtDialog.prototype) {
+            // 0. Hook _renderProgress to completely remove the 2-minute misinformation
+            const origRenderProgress = EwtDialog.prototype._renderProgress;
+            if (origRenderProgress) {
+              EwtDialog.prototype._renderProgress = function (label, progress) {
+                let cleanLabel = (typeof label === 'string') ? label : '';
+                if (/This will take|2 minutes|a minute|Keep this page visible|slow down/i.test(cleanLabel)) {
+                  cleanLabel = '';
+                }
+                return origRenderProgress.call(this, cleanLabel, progress);
+              };
+            }
+
+            // 1. Hook willUpdate: automatically transition any initial DASHBOARD or ASK_ERASE to INSTALL (Confirm Installation)
+            // BUT if flashing has completed, close dialog and return to main page
+            const origWillUpdate = EwtDialog.prototype.willUpdate;
+            EwtDialog.prototype.willUpdate = function(changedProps) {
+              if (this._hasStartedFlashing && (this._state === 'DASHBOARD' || this._state === 'PROVISION' || this._flashDone)) {
+                this._closeDialog();
+                return;
+              }
+
+              if (!this._hasStartedFlashing && this._manifest && (this._state === 'DASHBOARD' || this._state === 'ASK_ERASE')) {
+                this._state = 'INSTALL';
+                this._installErase = false;
+                this._installConfirmed = false;
+              }
+              if (origWillUpdate) origWillUpdate.call(this, changedProps);
+            };
+
+            // 2. Failsafe: Override dashboard renders
+            EwtDialog.prototype._renderDashboardNoImprov = function() {
+              if (this._hasStartedFlashing || this._flashDone) {
+                this._closeDialog();
+                return '';
+              }
+              this._state = 'INSTALL';
+              this._installErase = false;
+              this._installConfirmed = false;
+              return this._renderInstall();
+            };
+            EwtDialog.prototype._renderDashboard = function() {
+              if (this._hasStartedFlashing || this._flashDone) {
+                this._closeDialog();
+                return '';
+              }
+              this._state = 'INSTALL';
+              this._installErase = false;
+              this._installConfirmed = false;
+              return this._renderInstall();
+            };
+            EwtDialog.prototype._renderAskErase = function() {
+              if (this._hasStartedFlashing || this._flashDone) {
+                this._closeDialog();
+                return '';
+              }
+              this._state = 'INSTALL';
+              this._installErase = false;
+              this._installConfirmed = false;
+              return this._renderInstall();
+            };
+
+            // Ensure turbo 460,800 baud is guaranteed on _confirmInstall call
+            const origConfirmInstall = EwtDialog.prototype._confirmInstall;
+            EwtDialog.prototype._confirmInstall = async function() {
+              this._hasStartedFlashing = true;
+              this._flashDone = false;
+              this._finishHandled = false;
+              if (window.esploader) {
+                window.esploader.baudrate = 460800;
+              }
+              return origConfirmInstall.apply(this, arguments);
+            };
+
+            // Hook _closeDialog to guarantee blur removal and clean return to main page
+            const origCloseDialog = EwtDialog.prototype._closeDialog;
+            EwtDialog.prototype._closeDialog = function() {
+              document.body.classList.remove('dialog-blur-active');
+              if (origCloseDialog) {
+                origCloseDialog.call(this);
+              } else if (this.shadowRoot) {
+                const ewDlg = this.shadowRoot.querySelector('ew-dialog');
+                if (ewDlg) ewDlg.close();
+              }
+              this.remove();
+            };
+
+            EwtDialog.prototype._preventDefault = function (e) {
+              if (e && e.preventDefault) e.preventDefault();
+            };
+
+            // 3. Hook updated: inject the interactive mode selector into Confirm Installation & handle completion
+            const origUpdated = EwtDialog.prototype.updated;
+            EwtDialog.prototype.updated = function(changedProps) {
+              if (origUpdated) origUpdated.call(this, changedProps);
+              injectStyles(this);
+
+              // Sanitize 'This will take 2 minutes' text inside ewt-page-progress
+              if (this.shadowRoot) {
+                const progressEl = this.shadowRoot.querySelector('ewt-page-progress');
+                if (progressEl) {
+                  if (progressEl.label && typeof progressEl.label === 'object') {
+                    progressEl.label = '';
+                  }
+                  if (progressEl.shadowRoot) {
+                    const walker = document.createTreeWalker(progressEl.shadowRoot, NodeFilter.SHOW_TEXT);
+                    let n;
+                    while ((n = walker.nextNode())) {
+                      if (/This will take|2 minutes|a minute|Keep this page visible|slow down/i.test(n.nodeValue)) {
+                        n.nodeValue = '';
+                      }
+                    }
+                  }
+                }
+              }
+
+              // Auto-close dialog after flash completes and return to main flasher page
+              if (this._hasStartedFlashing && this._installState && this._installState.state === 'finished') {
+                this._flashDone = true;
+                if (!this._finishHandled) {
+                  this._finishHandled = true;
+                  console.info('[Web Flasher] Installation complete! Returning to main page...');
+                  setTimeout(() => {
+                    this._closeDialog();
+                  }, 1200);
+                }
+
+                // In case user clicks the button before timeout
+                const finishBtn = this.shadowRoot.querySelector('ew-text-button');
+                if (finishBtn && !finishBtn._finishHooked) {
+                  finishBtn._finishHooked = true;
+                  finishBtn.textContent = 'Finish';
+                  finishBtn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    e.preventDefault();
+                    this._closeDialog();
+                  }, true);
+                }
+                return;
+              }
+
+              if (!this._hasStartedFlashing && this._state === 'INSTALL' && !this._installConfirmed && this.shadowRoot) {
+                const contentDiv = this.shadowRoot.querySelector('div[slot="content"]');
+                if (contentDiv && !contentDiv.querySelector('#modal-mode-menu')) {
+                  const ver = (this._manifest && this._manifest.version) ? `v${this._manifest.version}` : 'v0.1.0';
+                  contentDiv.innerHTML = `
+                    <div class="modal-cyber-badge">
+                      <span class="pulse-emerald-dot"></span>
+                      <span class="badge-ver">${ver}</span>
+                    </div>
+
+                    <p class="modal-instruction-text">
+                      Select your preferred installation mode to begin flashing:
+                    </p>
+
+                    <div class="modal-mode-wrapper" id="modal-mode-menu">
+                      <div class="modal-mode-option ${!this._installErase ? 'active' : ''}" id="modal-mode-update">
+                        <div class="modal-radio-dot"></div>
+                        <div class="modal-option-body">
+                          <div class="modal-mode-header">
+                            <span class="modal-mode-title">Standard Update</span>
+                            <span class="modal-badge-rec">Keep Stats</span>
+                          </div>
+                          <div class="modal-mode-desc">
+                            Writes firmware directly to partition <code>0x10000</code>. Preserves your stored click counts and local settings.
+                          </div>
+                        </div>
+                      </div>
+
+                      <div class="modal-mode-option ${this._installErase ? 'active' : ''}" id="modal-mode-factory">
+                        <div class="modal-radio-dot"></div>
+                        <div class="modal-option-body">
+                          <div class="modal-mode-header">
+                            <span class="modal-mode-title">Factory Reset</span>
+                            <span class="modal-badge-warn">Wipe Flash</span>
+                          </div>
+                          <div class="modal-mode-desc">
+                            Performs complete chip wipe and re-flashes clean partition tables. Clears all stored counters and returns device to clean factory state.
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div class="modal-footer-note">
+                      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="12" cy="12" r="10"></circle>
+                        <line x1="12" y1="16" x2="12" y2="12"></line>
+                        <line x1="12" y1="8" x2="12.01" y2="8"></line>
+                      </svg>
+                      <span>Turbo upload speed active &bull; ~12 seconds completion</span>
+                    </div>
+                  `;
+
+                  const optUpdate = contentDiv.querySelector('#modal-mode-update');
+                  const optFactory = contentDiv.querySelector('#modal-mode-factory');
+
+                  if (optUpdate && optFactory) {
+                    optUpdate.addEventListener('click', (e) => {
+                      e.stopPropagation();
+                      this._installErase = false;
+                      optUpdate.classList.add('active');
+                      optFactory.classList.remove('active');
+                    });
+
+                    optFactory.addEventListener('click', (e) => {
+                      e.stopPropagation();
+                      this._installErase = true;
+                      optFactory.classList.add('active');
+                      optUpdate.classList.remove('active');
+                    });
+                  }
+
+                  const backBtn = this.shadowRoot.querySelector('ew-text-button:first-child');
+                  if (backBtn && !backBtn._backHooked) {
+                    backBtn._backHooked = true;
+                    backBtn.addEventListener('click', (e) => {
+                      e.stopPropagation();
+                      this._closeDialog();
+                    });
+                  }
+                }
+              }
+            };
+
+            // 4. Hook connectedCallback and disconnectedCallback for background blur & outside click dismissal
+            const origConnected = EwtDialog.prototype.connectedCallback;
+            EwtDialog.prototype.connectedCallback = function() {
+              if (origConnected) origConnected.call(this);
+              document.body.classList.add('dialog-blur-active');
+              injectStyles(this);
+              if (!this._outsideClickHooked) {
+                this._outsideClickHooked = true;
+                this.addEventListener('click', (e) => {
+                  const container = this.shadowRoot?.querySelector('ew-dialog')?.shadowRoot?.querySelector('.container');
+                  const path = e.composedPath();
+                  if (container && (e.target === container || path.includes(container))) {
+                    return;
+                  }
+                  if (e.target === this && !this._hasStartedFlashing) {
+                    this._closeDialog();
+                  }
+                });
+              }
+            };
+
+            const origDisconnected = EwtDialog.prototype.disconnectedCallback;
+            EwtDialog.prototype.disconnectedCallback = function() {
+              if (origDisconnected) origDisconnected.call(this);
+              document.body.classList.remove('dialog-blur-active');
+            };
+          }
+        });
       }
 
       function checkSerial() {
@@ -859,7 +1922,7 @@
               else pathPrefix = '';
               return;
             }
-          } catch (e) {}
+          } catch (e) { }
         }
       }
 
@@ -902,7 +1965,7 @@
                 return;
               }
             }
-          } catch (e) {}
+          } catch (e) { }
         }
 
         releaseList = DEFAULT_VERSIONS.map(rel => ({
@@ -938,14 +2001,12 @@
         const btn = document.getElementById('flasher-install-button');
         if (btn) {
           btn.setAttribute('manifest', manifestUrl);
-          btn.setAttribute('baud-rate', '115200');
           btn.manifest = manifestUrl;
-          btn.baudRate = 115200;
         }
 
         const cliCmd = document.getElementById('cli-cmd');
         if (cliCmd) {
-          cliCmd.textContent = `esptool.py --chip esp32 --port COMx write_flash 0x10000 releases/${rel.tag}/firmware.bin`;
+          cliCmd.textContent = `esptool.py --chip esp32 --baud 460800 --port COMx write_flash 0x10000 releases/${rel.tag}/firmware.bin`;
         }
       }
 
@@ -1001,4 +2062,5 @@
     })();
   </script>
 </body>
+
 </html>
