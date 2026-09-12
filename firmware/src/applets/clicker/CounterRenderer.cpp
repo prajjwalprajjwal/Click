@@ -272,14 +272,125 @@ void CounterRenderer::drawSisyphus(int16_t sx, int16_t sy,
   display.drawBitmap(sx, sy, spriteBmp, width, height, SSD1306_WHITE);
 }
 
+namespace {
+// Crisp 6x9 pixel font (~1.2x scale of standard 5x7 font: width 6 vs 5, height 9 vs 7)
+// Provides clean readability and larger glyphs on 128x64 OLED
+static const uint8_t font6x9_digits[10][9] PROGMEM = {
+    // '0'
+    {0x1E, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21, 0x21, 0x1E},
+    // '1'
+    {0x0C, 0x1C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x0C, 0x1E},
+    // '2'
+    {0x1E, 0x21, 0x01, 0x01, 0x1E, 0x20, 0x20, 0x20, 0x3F},
+    // '3'
+    {0x1E, 0x21, 0x01, 0x01, 0x0E, 0x01, 0x01, 0x21, 0x1E},
+    // '4'
+    {0x21, 0x21, 0x21, 0x21, 0x3F, 0x01, 0x01, 0x01, 0x01},
+    // '5'
+    {0x3F, 0x20, 0x20, 0x3E, 0x01, 0x01, 0x01, 0x21, 0x1E},
+    // '6'
+    {0x1E, 0x21, 0x20, 0x3E, 0x21, 0x21, 0x21, 0x21, 0x1E},
+    // '7'
+    {0x3F, 0x01, 0x02, 0x04, 0x04, 0x08, 0x08, 0x10, 0x10},
+    // '8'
+    {0x1E, 0x21, 0x21, 0x21, 0x1E, 0x21, 0x21, 0x21, 0x1E},
+    // '9'
+    {0x1E, 0x21, 0x21, 0x21, 0x1F, 0x01, 0x01, 0x21, 0x1E},
+};
+
+static const uint8_t font6x9_dot[9] PROGMEM = {
+    0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x30, 0x30
+};
+
+static const uint8_t font6x9_e[9] PROGMEM = {
+    0x00, 0x00, 0x1E, 0x21, 0x3F, 0x20, 0x20, 0x21, 0x1E
+};
+
+static const uint8_t font6x9_plus[9] PROGMEM = {
+    0x00, 0x00, 0x08, 0x08, 0x3E, 0x08, 0x08, 0x00, 0x00
+};
+
+static const uint8_t font6x9_minus[9] PROGMEM = {
+    0x00, 0x00, 0x00, 0x00, 0x3E, 0x00, 0x00, 0x00, 0x00
+};
+} // anonymous namespace
+
 void CounterRenderer::drawCounterText(const char *countStr) const {
-  display.setFont(NULL); // Reset to default 5x7 GLCD font
-  display.setTextSize(1);
-  display.setTextColor(SSD1306_WHITE, SSD1306_BLACK);
-  display.setCursor(2, 2);
+  if (!countStr)
+    return;
+
   char buf[32];
   formatDisplayCount(countStr, buf, sizeof(buf));
-  display.print(buf);
+
+  // Position with 2-3px extra margin from top and left (x=5, y=5 vs previous x=2, y=2)
+  // to ensure counter digits never get clipped by the OLED bezel
+  int16_t curX = 5;
+  const int16_t curY = 5;
+
+  // Calculate total width to clear solid black background so background
+  // clouds or elements never clash with the digits
+  int16_t totalW = 0;
+  for (size_t i = 0; buf[i] != '\0'; ++i) {
+    char c = buf[i];
+    if (c == '.')
+      totalW += 4;
+    else if (c == ' ')
+      totalW += 4;
+    else
+      totalW += 7;
+  }
+
+  if (totalW > 0) {
+    display.fillRect(curX - 1, curY - 1, totalW + 2, 11, SSD1306_BLACK);
+  }
+
+  for (size_t i = 0; buf[i] != '\0'; ++i) {
+    char c = buf[i];
+    const uint8_t *bitmap = nullptr;
+    uint8_t w = 6;
+    uint8_t adv = 7;
+
+    if (c >= '0' && c <= '9') {
+      bitmap = font6x9_digits[c - '0'];
+      w = 6;
+      adv = 7;
+    } else if (c == '.') {
+      bitmap = font6x9_dot;
+      w = 2;
+      adv = 4;
+    } else if (c == 'e' || c == 'E') {
+      bitmap = font6x9_e;
+      w = 6;
+      adv = 7;
+    } else if (c == '+') {
+      bitmap = font6x9_plus;
+      w = 5;
+      adv = 6;
+    } else if (c == '-') {
+      bitmap = font6x9_minus;
+      w = 5;
+      adv = 6;
+    } else if (c == ' ') {
+      curX += 4;
+      continue;
+    } else {
+      display.drawChar(curX, curY, c, SSD1306_WHITE, SSD1306_BLACK, 1);
+      curX += 6;
+      continue;
+    }
+
+    if (bitmap) {
+      for (uint8_t row = 0; row < 9; ++row) {
+        uint8_t rowBits = pgm_read_byte(&bitmap[row]);
+        for (uint8_t col = 0; col < w; ++col) {
+          if (rowBits & (0x20 >> col)) {
+            display.drawPixel(curX + col, curY + row, SSD1306_WHITE);
+          }
+        }
+      }
+      curX += adv;
+    }
+  }
 }
 
 void CounterRenderer::renderScene(const char *countStr,

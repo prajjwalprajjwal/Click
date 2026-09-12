@@ -8,8 +8,8 @@ const DEFAULT_RELEASES = [
     manifest: "releases/v0.1.0/manifest.json",
     bin: "releases/v0.1.0/firmware.bin",
     factory_bin: "releases/v0.1.0/factory_firmware.bin",
-    size: 567984,
-    factory_size: 633520,
+    size: 568416,
+    factory_size: 633952,
     is_latest: true
   },
   {
