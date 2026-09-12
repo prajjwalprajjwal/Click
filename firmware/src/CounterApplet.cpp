@@ -227,6 +227,12 @@ void CounterApplet::update() {
   updateAnimation(now);
   persistIfNeeded(false);
 
+  // Smooth automatic cloud drift when idle: trigger frame redraw at 10 FPS
+  if ((now - lastCloudDriftTime) >= CLOUD_DRIFT_INTERVAL_MS) {
+    lastCloudDriftTime = now;
+    frameDirty = true;
+  }
+
 #if CLICKER_DEBUG
   processDebugSerial();
 #endif

@@ -10,7 +10,8 @@ class CounterRenderer {
 private:
   void formatDisplayCount(const char *countStr, char *buffer,
                           size_t bufferSize) const;
-  void drawBackground(float worldProgress, int32_t climbProgress) const;
+  void drawBackground(float worldProgress, int32_t climbProgress,
+                      int16_t charX) const;
   void drawHillTerrain(int32_t hillOffset, int32_t climbProgress) const;
   void drawBoulder(int16_t bx, int16_t by, uint8_t rotFrame) const;
   void drawSisyphus(int16_t sx, int16_t sy, const uint8_t *spriteBmp,
