@@ -84,6 +84,10 @@ Click/
 │   │   ├── Click1/                   # Active prototype KiCad PCB (ESP32-WROOM-32E)
 │   │   └── Click4/                   # Upcoming JLCPCB PCBA design (RP2354A V0.0.1)
 │   └── vector_designs.ai             # Laser cutting & case artwork
+├── server/                           # Cloudflare Worker + D1 Serverless Backend
+│   ├── worker.js                     # Edge API routes (/api/leaderboard, /api/sync)
+│   ├── schema.sql                    # D1 SQLite schema (devices, global_stats, sync_log)
+│   └── wrangler.toml                 # Cloudflare Worker deployment configuration
 ├── firmware/                         # Embedded C++ firmware
 │   ├── assets/screens/               # Raw PNG images (128x64, 1-bit)
 │   ├── scripts/                      # Pre-build asset converter & flasher scripts

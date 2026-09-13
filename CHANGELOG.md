@@ -33,6 +33,41 @@
 
 ## Release History & Changes
 
+### [v0.1.1] - 2026-09-13
+
+#### Added
+- **Edge Serverless Leaderboard Backend (`server/`)**:
+  - Zero-cost ($0/month), zero-maintenance edge backend powered by Cloudflare Workers and Cloudflare D1 (Serverless SQLite).
+  - Schema defined in `server/schema.sql` (`global_stats`, `devices`, `sync_log`) with fast B-Tree indexing.
+  - Endpoints:
+    - `GET /api/leaderboard`: Returns real-time community boulder statistics and top 10 rankings for Sisyphus, Flappy Bird, and Just Ten.
+    - `POST /api/sync`: Atomic score submission with rate limiting and delta crediting.
+    - `GET /api/user`: Queries registered handle and stats by 12-character eFuse MAC.
+- **The "Community Boulder" Shared Mechanic**:
+  - Transforms solitary clicking into a global cooperative experience: all player clicks are aggregated into a single massive global boulder counter (`global_stats.total_boulder_clicks`).
+  - Web interface visualizes the worldwide community progress as a shared ascent up Mount Olympus.
+- **Server-Side Anti-Cheat & Human-Speed Rate Limiting**:
+  - Algorithms enforce physical human limitations (~15–20 clicks/second maximum sustained rate).
+  - Validates delta clicks against time elapsed since the device's previous sync.
+  - Blocks impossible score injections and logs all delta claims into `sync_log`.
+- **Custom Bootscreen Name & Device Personalization (`device_info.hpp` / `device_info.cpp`)**:
+  - Persistent custom device name storage in NVS (`device` namespace).
+  - Dynamically renders the owner's custom name (e.g. `"Prajjwal's Click"`) directly on the SSD1306 OLED boot screen.
+- **WebSerial Bi-Directional Command Protocol (`main.cpp`)**:
+  - Integrated ASCII serial interface over UART0 (115200 baud):
+    - `GET_ID`: Returns unique 12-char factory eFuse MAC (`ID:<chip_id>`).
+    - `GET_NAME`: Returns saved owner name (`NAME:<name>`).
+    - `SET_NAME:<name>`: Writes new owner handle to NVS without reflashing firmware.
+    - `GET_STATS`: Extracts live metrics from active applets (`CLICKS:<n>,FLAPPY:<n>,JUST_TEN:<n>`).
+    - `RESET_STATS`: Allows zeroing active applet metrics.
+- **Unified Web Flasher & Live Leaderboard Hub (`web_flasher/`)**:
+  - Re-architected `flasher.html`, `index.html`, and `app.js` with responsive dark cyberpunk aesthetic.
+  - Embedded live leaderboard tab with real-time podium cards for all three mini-games.
+  - Two-way WebSerial connection tool to personalize device names and sync scores in one click.
+  - Automatic fallback to bundled `leaderboard.json` if edge API is unreachable.
+
+---
+
 ### [v0.1.0] - 2026-09-12
 
 #### Added

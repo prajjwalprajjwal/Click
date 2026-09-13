@@ -21,6 +21,11 @@ Click/
 │       ├── Click1/                   <-- Active prototype KiCad PCB & schematic (ESP32-WROOM-32E)
 │       ├── Click4/                   <-- Next-Gen RP2354A PCB (JLCPCB PCBA Production V0.0.1)
 │       └── Resources/                <-- Edge cut DXF files and mechanical templates
+├── server/                           <-- Cloudflare Worker + D1 Serverless Leaderboard Backend
+│   ├── worker.js                     <-- Edge API routes (/api/leaderboard, /api/sync)
+│   ├── schema.sql                    <-- D1 SQLite schema (devices, global_stats, sync_log)
+│   ├── wrangler.toml                 <-- Cloudflare Worker deployment configuration
+│   └── README.md                     <-- 3-minute zero-cost deployment guide
 ├── firmware/                         <-- Modular C++ embedded firmware
 │   ├── assets/screens/               <-- 1-bit screen bitmaps & sprites (.png)
 │   ├── scripts/
@@ -29,7 +34,7 @@ Click/
 │   │   ├── flash.sh                  <-- Flashing utility for macOS / Linux
 │   │   └── flash.bat                 <-- Flashing utility for Windows
 │   └── src/                          <-- Application source code & applets
-│       ├── main.cpp                  <-- Application entry point & applet registry
+│       ├── main.cpp                  <-- Application entry point, serial protocol & registry
 │       ├── system/                   <-- Core OS, drivers & power management (untouched by applets)
 │       │   ├── Applet.h              <-- Base class interface for all applets
 │       │   ├── OSManager.h / .cpp    <-- Applet scheduler & sleep lifecycle
@@ -37,7 +42,7 @@ Click/
 │       │   ├── Display.h             <-- SSD1306 OLED singleton & 400kHz fast I2C
 │       │   ├── InputManager.h / .cpp <-- Debounced button state machine & hold triggers
 │       │   ├── battery.hpp           <-- Battery voltage, percentage & charging status
-│       │   └── device_info.hpp       <-- Unique eFuse MAC hardware identifier
+│       │   └── device_info.hpp / .cpp<-- eFuse MAC ID & customizable owner name
 │       ├── applets/                  <-- Self-contained, modular games & apps
 │       │   ├── clicker/              <-- Sisyphus uphill clicker game & physics engine
 │       │   ├── timing_game/          <-- "Just 10 Seconds" accuracy timing game
@@ -47,9 +52,11 @@ Click/
 │       ├── fonts/                    <-- Custom Adafruit GFX typography headers
 │       ├── screens/                  <-- Legacy milestone overlay renderers
 │       └── generated_assets/         <-- Auto-generated C bitmap headers
-├── web_flasher/                      <-- WebSerial flashing site (flashclick.uprajjwal.com.np)
+├── web_flasher/                      <-- WebSerial flashing & leaderboard site (flashclick.uprajjwal.com.np)
 │   ├── index.html                    <-- Web application entry point
-│   ├── app.js                        <-- WebSerial engine & dynamic device ID query
+│   ├── flasher.html                  <-- Full-featured WebSerial flasher, personalizer & leaderboard UI
+│   ├── app.js                        <-- WebSerial engine, personalization & leaderboard sync
+│   ├── style.css                     <-- Cyberpunk terminal responsive styling
 │   ├── manifest.json                 <-- ESP Web Tools manifest configuration
 │   └── versions.json                 <-- Firmware release registry
 ├── tools/                            <-- Build & developer utilities
@@ -59,7 +66,7 @@ Click/
 └── docs/                             <-- Architectural specifications
     ├── hardware_and_pinouts.md       <-- Detailed pin profiles (ESP32 vs RP2354A)
     ├── device_identification_and_leaderboard.md <-- eFuse MAC & database schema
-    └── leaderboard_architecture.md   <-- API synchronization & score submission
+    └── leaderboard_architecture.md   <-- Cloudflare Worker API & score sync model
 ```
 
 ---
@@ -212,9 +219,51 @@ To build an official release, bump semantic versions, and generate 3-part manife
 python tools/release/release_manager.py
 ```
 
----
+## 🌐 Community Leaderboard & Edge Cloud Architecture
 
-## 🌐 Community & Global Leaderboard
+The Click ecosystem features a fully connected, zero-maintenance, zero-cost ($0/month) serverless stack running on **Cloudflare Workers** and **Cloudflare D1 (Serverless SQLite)**:
 
-* **Live Leaderboard**: [click.uprajjwal.com.np](https://click.uprajjwal.com.np)
-* **Web Flasher**: [flashclick.uprajjwal.com.np](https://flashclick.uprajjwal.com.np)
+```mermaid
+flowchart LR
+    DEV["🎮 Clicker Device\n(ESP32 / RP2354A)"]
+    WEB["💻 Web Flasher & Hub\n(flashclick.uprajjwal.com.np)"]
+    CF["⚡ Cloudflare Worker\n(/api/sync, /api/leaderboard)"]
+    D1[("🗄️ Cloudflare D1\n(SQLite at Edge)")]
+    SITE["🏆 Community Leaderboard\n(click.uprajjwal.com.np)"]
+
+    DEV <-->|"WebSerial (115200 Baud)\nGET_ID / GET_STATS / SET_NAME"| WEB
+    WEB -->|"POST /api/sync\n(Atomic delta push)"| CF
+    CF <-->|"ACID SQLite Queries\nAnti-Cheat Validation"| D1
+    SITE <-->|"GET /api/leaderboard\n(Edge-cached JSON)"| CF
+```
+
+### 1. The "Community Boulder" Mechanic 🪨
+* Unlike isolated single-player games, every single click registered on any Clicker device contributes to the **Global Community Boulder**.
+* When players connect to the Web Flasher and sync their device, their delta clicks are atomically added to `global_stats.total_boulder_clicks`.
+* The live web interface visualizes the worldwide community progress as one shared mountain ascent.
+
+### 2. Anti-Cheat & Physical Rate Limiting 🛡️
+* The Cloudflare Worker enforces strict human-velocity checks on every sync request:
+  * Delta clicks are validated against elapsed time between syncs (enforcing a physical maximum cap of ~15–20 clicks per second).
+  * Excessive or impossible spikes are flagged and rejected, ensuring the Community Boulder and leaderboard rankings remain authentic.
+  * Every sync transaction is immutably audited in the `sync_log` table with delta claims and hash signatures.
+
+### 3. Device Personalization & Custom Bootscreen ✨
+* Clickers are uniquely identified by their factory eFuse MAC address (e.g. `3C71BF89A1B2`).
+* Through the Web Flasher interface, players can set a custom owner name (e.g. `"Prajjwal's Click"`).
+* This name is transmitted via WebSerial (`SET_NAME:<name>`) and saved directly into the device's persistent NVS storage (`device` namespace).
+* Upon reboot, the physical SSD1306 OLED screen proudly renders the personalized owner name on the boot splash screen.
+
+### 4. Interactive WebSerial Command Protocol 🔌
+The firmware exposes a lightweight ASCII command parser on UART0 (115200 baud) for browser-based management:
+* `GET_ID` &rarr; Returns `ID:<12-hex-chip-id>`
+* `GET_NAME` &rarr; Returns `NAME:<owner_name>`
+* `SET_NAME:<name>` &rarr; Writes name to NVS and returns `OK:NAME_SET`
+* `GET_STATS` &rarr; Returns structured game metrics: `CLICKS:<n>,FLAPPY:<n>,JUST_TEN:<n>`
+* `RESET_STATS` &rarr; Resets active applet statistics
+
+### 5. Live Links & Deployment
+* **Live Community Leaderboard**: [click.uprajjwal.com.np](https://click.uprajjwal.com.np)
+* **Web Flasher & Device Hub**: [flashclick.uprajjwal.com.np](https://flashclick.uprajjwal.com.np)
+* **Backend Source & Deployment Guide**: [`server/README.md`](server/README.md)
+

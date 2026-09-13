@@ -6,8 +6,8 @@ This document describes how Clicker devices are uniquely identified via immutabl
 
 ## 1. Hardware Unique Identifiers
 
-### A. ESP32 Factory eFuse MAC (`firmware/src/device_info.hpp`)
-Each ESP32 unit derives an immutable 48-bit hardware identifier burned into eFuse silicon at the factory:
+### A. ESP32 Factory eFuse MAC & Custom Name (`firmware/src/system/device_info.hpp`)
+Each ESP32 unit derives an immutable 48-bit hardware identifier burned into eFuse silicon at the factory, paired with an NVS-backed customizable owner name:
 
 ```cpp
 #pragma once
@@ -22,7 +22,7 @@ public:
         snprintf(idStr, sizeof(idStr), "%04X%08X", 
                  (uint16_t)(chipid >> 32), 
                  (uint32_t)chipid);
-        return String(idStr); // Returns a clean 12-char hex ID like "A4CF1289BC01"
+        return String(idStr); // Returns a clean 12-char hex ID like "3C71BF89A1B2"
     }
 
     static String getFormattedMac() {
@@ -31,8 +31,13 @@ public:
         char macStr[18];
         snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
                  mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-        return String(macStr); // e.g. "A4:CF:12:89:BC:01"
+        return String(macStr); // e.g. "3C:71:BF:89:A1:B2"
     }
+
+    // Dynamic Bootscreen Name Personalization
+    static String getCustomName();
+    static bool setCustomName(const String& name);
+    static bool hasCustomName();
 };
 ```
 
@@ -49,72 +54,74 @@ pico_get_unique_board_id(&id);
 
 ---
 
-## 2. WebSerial Identification Flow (`flashclick.uprajjwal.com.np`)
+## 2. WebSerial Bi-Directional Protocol (`flashclick.uprajjwal.com.np`)
 
 ```mermaid
 sequenceDiagram
     participant User
     participant WebFlasher as flashclick.uprajjwal.com.np
     participant Device as Clicker Device
-    participant Backend as Leaderboard API (click.uprajjwal.com.np)
+    participant Cloud as Cloudflare Worker + D1
 
-    User->>WebFlasher: Connect via WebSerial
-    WebFlasher->>Device: Read Factory Hardware ID
-    Device-->>WebFlasher: Returns "A4CF1289BC01"
-    WebFlasher->>Backend: GET /api/user?device_id=A4CF1289BC01
-    
-    alt Existing Recognized Device
-        Backend-->>WebFlasher: { found: true, player_name: "Prajjwal", total_clicks: 25400, flappy_high: 42 }
-        WebFlasher->>User: "Welcome back, Prajjwal!" (Profile auto-populated)
-    else New Unregistered Device
-        Backend-->>WebFlasher: { found: false }
-        WebFlasher->>User: Prompt for User Handle / Nickname
-        User->>WebFlasher: Enter "Prajjwal"
-        WebFlasher->>Device: Write handle into NVS partition (0x9000)
-        WebFlasher->>Backend: POST /api/register { device_id: "A4CF1289BC01", handle: "Prajjwal" }
+    User->>WebFlasher: Connect via WebSerial (115200 baud)
+    WebFlasher->>Device: GET_ID
+    Device-->>WebFlasher: ID:3C71BF89A1B2
+    WebFlasher->>Device: GET_NAME
+    Device-->>WebFlasher: NAME:Prajjwal's Click
+    WebFlasher->>Device: GET_STATS
+    Device-->>WebFlasher: CLICKS:35200,FLAPPY:42,JUST_TEN:10.004
+
+    opt User Updates Name
+        User->>WebFlasher: Enter "Master Clicker"
+        WebFlasher->>Device: SET_NAME:Master Clicker
+        Device-->>WebFlasher: OK:NAME_SET (Saved to NVS)
     end
-```
 
-1. **Hardware ID Interrogation**: The WebSerial interface communicates with the device bootloader/runtime over USB Serial and queries the permanent hardware ID.
-2. **Cloud Profile Query**: The browser dispatches a `GET` request to `/api/user?device_id=...`.
-3. **Auto-Prefill & Returning Player Recognition**:
-   - **Existing Player**: If found in the database, the player's handle and accumulated metrics are restored without manual re-entry.
-   - **New Player**: The user enters their chosen handle, which is written to the NVS storage partition (`0x9000`) and posted to the registry API.
+    WebFlasher->>Cloud: POST /api/sync { chip_id, name, clicks, flappy, just_ten }
+    Cloud-->>WebFlasher: { success: true, credited_delta: 350, total_boulder_clicks: 1420580 }
+    WebFlasher->>User: Display live ranking & Community Boulder contribution!
+```
 
 ---
 
-## 3. Multi-Game Database Schema & UPSERT Queries
+## 3. Cloudflare D1 Serverless Database Schema (`server/schema.sql`)
 
-The central database tracks player profiles and high scores across all installed game applets:
+The database is built on **Cloudflare D1 (Edge SQLite)**, ensuring instantaneous global read/write performance with ACID compliance and zero hosting costs:
 
 ```sql
-CREATE TABLE leaderboard (
-    device_id VARCHAR(32) PRIMARY KEY,      -- Unique Silicon ID (eFuse MAC or RP2354 OTP)
-    player_name VARCHAR(32) NOT NULL,       -- Registered Player Nickname
-    total_clicks BIGINT DEFAULT 0,          -- Lifetime Sisyphus Clicks
-    sisyphus_cycles INT DEFAULT 0,          -- Mountain Ascent Cycles Completed
-    just_ten_best_diff_ms INT DEFAULT 9999, -- Timing deviation from 10.0000s in ms
-    flappy_high_score INT DEFAULT 0,        -- Best Flappy Bird obstacle score
-    hardware_model VARCHAR(16) DEFAULT 'ESP32', -- 'ESP32' or 'CLICK4_RP2354'
-    firmware_version VARCHAR(16) NOT NULL,
-    last_updated TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+-- D1 SQLite Schema for Click Community Leaderboard
+
+CREATE TABLE IF NOT EXISTS global_stats (
+    id INTEGER PRIMARY KEY CHECK (id = 1),
+    total_boulder_clicks INTEGER NOT NULL DEFAULT 0,
+    total_devices INTEGER NOT NULL DEFAULT 0,
+    last_updated DATETIME DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS devices (
+    chip_id TEXT PRIMARY KEY,
+    device_name TEXT NOT NULL,
+    total_clicks INTEGER NOT NULL DEFAULT 0,
+    last_synced_clicks INTEGER NOT NULL DEFAULT 0,
+    last_synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+    flappy_high_score INTEGER NOT NULL DEFAULT 0,
+    just_ten_time REAL NOT NULL DEFAULT 0,
+    just_ten_best_ms INTEGER NOT NULL DEFAULT 0,
+    uptime_hrs INTEGER NOT NULL DEFAULT 0,
+    verified INTEGER NOT NULL DEFAULT 1,
+    created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS sync_log (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    chip_id TEXT NOT NULL,
+    delta_claimed INTEGER NOT NULL,
+    delta_credited INTEGER NOT NULL,
+    ip_hash TEXT,
+    synced_at DATETIME DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_devices_clicks ON devices(total_clicks DESC);
+CREATE INDEX IF NOT EXISTS idx_devices_flappy ON devices(flappy_high_score DESC);
 ```
 
-### Multi-Game UPSERT Query
-```sql
-INSERT INTO leaderboard (
-    device_id, player_name, total_clicks, sisyphus_cycles,
-    just_ten_best_diff_ms, flappy_high_score, hardware_model,
-    firmware_version, last_updated
-)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, CURRENT_TIMESTAMP)
-ON CONFLICT (device_id) DO UPDATE SET
-    player_name = EXCLUDED.player_name,
-    total_clicks = GREATEST(leaderboard.total_clicks, EXCLUDED.total_clicks),
-    sisyphus_cycles = GREATEST(leaderboard.sisyphus_cycles, EXCLUDED.sisyphus_cycles),
-    just_ten_best_diff_ms = LEAST(leaderboard.just_ten_best_diff_ms, EXCLUDED.just_ten_best_diff_ms),
-    flappy_high_score = GREATEST(leaderboard.flappy_high_score, EXCLUDED.flappy_high_score),
-    firmware_version = EXCLUDED.firmware_version,
-    last_updated = CURRENT_TIMESTAMP;
-```

@@ -4,10 +4,20 @@ Web-based firmware updater for the open-source Clicker device ecosystem, designe
 
 ---
 
-## Data Preservation & Installation Choices
+## 🌟 Key Features
 
-- **Update (Keep Data)**: Flashes `firmware.bin` to offset `0x10000` (`app0`) while preserving all lifetime clicks, completed cycles, and unlocked milestones in the `nvs` partition (`0x9000`).
-- **Clean Install (Erase)**: Enabled via `"new_install_prompt_erase": true` in `manifest.json`. Users can choose to execute a full factory wipe when restoring unbootable units or transferring ownership.
+1. **Firmware Flashing & Updates (Data Preservation)**:
+   - **Update (Keep Data)**: Flashes `firmware.bin` to offset `0x10000` (`app0`) while preserving all lifetime clicks, completed cycles, and unlocked milestones in the `nvs` partition (`0x9000`).
+   - **Clean Install (Erase)**: Enabled via `"new_install_prompt_erase": true` in `manifest.json`. Users can choose to execute a full factory wipe when restoring unbootable units or transferring ownership.
+2. **Device Personalization (Custom Bootscreen)**:
+   - Connects to the Clicker device over WebSerial (115200 baud).
+   - Reads the factory eFuse MAC identifier and prompts the user for a custom owner name (e.g. `"Prajjwal's Click"`).
+   - Sends `SET_NAME:<name>` over serial to update the device NVS instantly—the name displays proudly on the physical OLED bootscreen upon boot!
+3. **Live Community Leaderboard & Boulder Sync**:
+   - Integrates directly with the Cloudflare Worker serverless backend (`/api/sync` and `/api/leaderboard`).
+   - Queries game statistics (`CLICKS`, `FLAPPY`, `JUST_TEN`) via `GET_STATS` and submits verified deltas to the Community Boulder.
+   - Shows live podiums and top 10 rankings for Sisyphus, Flappy Bird, and Just Ten.
+
 
 ---
 
