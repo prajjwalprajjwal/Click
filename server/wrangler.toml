@@ -1,0 +1,10 @@
+name = "click-leaderboard-api"
+main = "worker.js"
+compatibility_date = "2024-01-01"
+
+# D1 Database binding
+# Replace database_id with your D1 database UUID created via: npx wrangler d1 create click_db
+[[d1_databases]]
+binding = "DB"
+database_name = "click_db"
+database_id = "d2232efd-8e78-486c-b4ed-e9d53fcabcb9"

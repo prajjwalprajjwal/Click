@@ -17,7 +17,7 @@
 
   <!-- ESP32 Turbo Flash Engine Hook (PlatformIO 460,800 Baud Rate) -->
   <script>
-    (function() {
+    (function () {
       let _esp = null;
       function applyTurbo(inst) {
         if (!inst) return;
@@ -28,13 +28,13 @@
             inst.constructor.prototype._turboHooked = true;
             const origMain = inst.constructor.prototype.main;
             if (origMain) {
-              inst.constructor.prototype.main = async function(...args) {
+              inst.constructor.prototype.main = async function (...args) {
                 this.baudrate = 460800;
                 return origMain.apply(this, args);
               };
             }
           }
-        } catch(e) {
+        } catch (e) {
           console.warn('[Click Flasher] Turbo hook error:', e);
         }
       }
@@ -48,7 +48,7 @@
             applyTurbo(inst);
           }
         });
-      } catch(e) {
+      } catch (e) {
         console.warn('[Click Flasher] Could not define esploader property:', e);
       }
     })();
@@ -88,7 +88,12 @@
 
           <!-- Browser Status -->
           <div id="browser-status" class="browser-status supported">
-            <!-- Populated by app.js -->
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+              style="flex-shrink:0;">
+              <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+              <polyline points="22 4 12 14.01 9 11.01"></polyline>
+            </svg>
+            <span><strong>Web Serial Ready:</strong> Connect the device via USB-C and click below to flash.</span>
           </div>
 
           <!-- Version Selector -->
@@ -394,6 +399,142 @@
             <!-- Rendered dynamically by app.js -->
           </tbody>
         </table>
+      </div>
+    </section>
+
+    <!-- Community Leaderboard & Device Stats Sync Section -->
+    <section id="community-sync-section" style="margin-top: 1rem; margin-bottom: 2.5rem;">
+      <div style="text-align: center; margin-bottom: 1.75rem;">
+        <h2 class="section-title" style="justify-content: center;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+            <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+            <path d="M4 22h16"></path>
+            <path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1-.45-1-1v-2.34"></path>
+            <path d="M18 14.66V17c0 .55-.45 1-1 1h-2c-.55 0-1-.45-1-1v-2.34"></path>
+            <path d="M12 2v8"></path>
+            <path d="M6 4h12a2 2 0 0 1 2 2v6a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6V6a2 2 0 0 1 2-2z"></path>
+          </svg>
+          <span>Community Applet Leaderboards & Device Sync</span>
+        </h2>
+        <p class="section-desc" style="max-width: 680px; margin: 0.35rem auto 0;">
+          Sync your lifetime achievements from all installed tactile applets directly to the community leaderboards at
+          <a href="https://click.uprajjwal.com.np/" target="_blank" rel="noopener"
+            style="color:#34d399;text-decoration:underline;">click.uprajjwal.com.np</a> without reflashing.
+        </p>
+      </div>
+
+      <!-- Main Sync Card -->
+      <div class="card" style="padding: 2rem;">
+        <div class="card-header" style="margin-bottom: 1.25rem;">
+          <div class="card-title" style="font-size: 1.25rem;">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Zero-Flash Device Telemetry Sync</span>
+          </div>
+          <span class="brand-badge" style="margin: 0; padding: 0.25rem 0.75rem; font-size: 0.78rem;">
+            <span class="pulse-dot"></span>
+            NON-DESTRUCTIVE READ
+          </span>
+        </div>
+
+        <p
+          style="font-family: var(--font-sans); font-size: 0.95rem; line-height: 1.6; color: var(--text-secondary); margin-bottom: 1.5rem;">
+          Connect your Click over USB to read your saved milestones across <strong>all tactile applets</strong>. This
+          safely synchronizes your stats to the community site without clearing or modifying your local NVS flash
+          partition (<code>0x9000</code>).
+        </p>
+
+        <!-- 3 Applet Cards Grid -->
+        <div class="sync-applets-grid">
+          <div class="sync-applet-card">
+            <div class="sync-applet-head">
+              <span class="sync-applet-name">Sisyphus</span>
+              <span class="sync-applet-badge">FIDGET / FOCUS</span>
+            </div>
+            <div class="sync-applet-desc">
+              Contributes newly pushed clicks toward the collective Community Boulder.
+            </div>
+          </div>
+
+          <div class="sync-applet-card">
+            <div class="sync-applet-head">
+              <span class="sync-applet-name">Just Ten</span>
+              <span class="sync-applet-badge">REACTION / ZEN</span>
+            </div>
+            <div class="sync-applet-desc">
+              Uploads your closest 10.0000s hold timing calibration score to the leaderboard.
+            </div>
+          </div>
+
+          <div class="sync-applet-card">
+            <div class="sync-applet-head">
+              <span class="sync-applet-name">Flappy Bird</span>
+              <span class="sync-applet-badge">TACTILE ARCADE</span>
+            </div>
+            <div class="sync-applet-desc">
+              Publishes your personal all-time high score run to the community hall of fame.
+            </div>
+          </div>
+        </div>
+
+        <div class="sync-action-row">
+          <button id="btn-sync-stats" class="btn-primary" type="button" style="width: auto; padding: 0.85rem 1.85rem;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+              <polyline points="23 4 23 10 17 10"></polyline>
+              <polyline points="1 20 1 14 7 14"></polyline>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+            <span>Sync All Applet Stats</span>
+          </button>
+          <span id="sync-status-msg" class="sync-status-text">
+            Connect USB and click to read all applet milestones
+          </span>
+        </div>
+
+        <!-- Dynamic Telemetry Readout HUD -->
+        <div id="sync-telemetry-hud" class="sync-telemetry-hud">
+          <div class="hud-header">
+            <div class="hud-title">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2">
+                <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                <line x1="8" y1="21" x2="16" y2="21"></line>
+                <line x1="12" y1="17" x2="12" y2="21"></line>
+              </svg>
+              <span>Click Hardware Telemetry Readout</span>
+            </div>
+            <span id="hud-status" class="hud-status-badge">CONNECTED</span>
+          </div>
+          <div class="hud-grid">
+            <div class="hud-metric-box">
+              <div class="hud-label">Device Name</div>
+              <div id="hud-name" class="hud-value">--</div>
+            </div>
+            <div class="hud-metric-box">
+              <div class="hud-label">Sisyphus Clicks</div>
+              <div id="hud-clicks" class="hud-value" style="color:#34d399;">--</div>
+            </div>
+            <div class="hud-metric-box">
+              <div class="hud-label">Just Ten Record</div>
+              <div id="hud-just-ten" class="hud-value" style="color:#a78bfa;">--</div>
+            </div>
+            <div class="hud-metric-box">
+              <div class="hud-label">Flappy Bird Best</div>
+              <div id="hud-flappy" class="hud-value" style="color:#38bdf8;">--</div>
+            </div>
+            <div class="hud-metric-box">
+              <div class="hud-label">Hardware Serial / Chip</div>
+              <div id="hud-uuid" class="hud-value"
+                style="font-size:0.95rem;font-family:var(--font-mono);word-break:break-all;">--</div>
+            </div>
+          </div>
+          <div id="hud-note" class="hud-footer-note">
+            Telemetry verified directly from local NVS memory partition.
+          </div>
+        </div>
       </div>
     </section>
 

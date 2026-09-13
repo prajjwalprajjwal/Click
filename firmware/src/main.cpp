@@ -88,15 +88,34 @@ void onBothButtonsHeld() {
     }
 }
 
+static Preferences sysPrefs;
+static uint32_t totalUptimeMinutes = 0;
+static uint32_t lastUptimeCheckMs = 0;
+static void handleSerialTelemetry();
+
 void setup() {
     Serial.begin(115200);
-    delay(500); // let the oled init properly
+
+    // Early preload of state so telemetry can answer immediately even during boot
+    counterApplet.preloadState();
+    flappyBirdApplet.preloadState();
+    timingGameApplet.preloadState();
+    sysPrefs.begin("sys_uptime", false);
+    totalUptimeMinutes = sysPrefs.getUInt("minutes", 0);
+    lastUptimeCheckMs = millis();
+
+    // Responsive early delay loop checking for incoming telemetry
+    for (int i = 0; i < 50; i++) {
+        handleSerialTelemetry();
+        delay(10);
+    }
 
     Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
 
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         while (1) {
-            delay(1000);
+            handleSerialTelemetry();
+            delay(100);
         }
     }
 
@@ -157,7 +176,12 @@ void setup() {
     display.print("Starting up...");
 
     display.display();
-    delay(1000);
+
+    // Bootscreen delay while continuously servicing serial telemetry
+    for (int i = 0; i < 100; i++) {
+        handleSerialTelemetry();
+        delay(10);
+    }
 
     // Register playable main applets (index 0 is active on boot)
     osManager.registerApplet(&counterApplet);     // index 0: Clicker (Default on boot)
@@ -176,12 +200,70 @@ void setup() {
     inputMgr->onModeHold     = onModeButtonHold;
     inputMgr->onActionClick  = onActionButtonClick;
     inputMgr->onActionHold   = onActionButtonHold;
-    inputMgr->onBothHeld     = onBothButtonsHeld;
+}
+
+static void handleSerialTelemetry() {
+    if (!Serial.available()) return;
+    static char cmdBuf[32];
+    static uint8_t cmdIdx = 0;
+    while (Serial.available()) {
+        char c = static_cast<char>(Serial.read());
+        if (c == '\n' || c == '\r') {
+            if (cmdIdx > 0) {
+                cmdBuf[cmdIdx] = '\0';
+                // Case-insensitive uppercase conversion
+                for (uint8_t i = 0; i < cmdIdx; i++) {
+                    if (cmdBuf[i] >= 'a' && cmdBuf[i] <= 'z') {
+                        cmdBuf[i] -= 32;
+                    }
+                }
+                if (strstr(cmdBuf, "GET_STATS") != nullptr || strstr(cmdBuf, "STATS") != nullptr) {
+                    uint64_t mac = ESP.getEfuseMac();
+                    char chipId[16];
+                    snprintf(chipId, sizeof(chipId), "%04X%08X", static_cast<uint16_t>(mac >> 32), static_cast<uint32_t>(mac));
+                    const char* dName = DeviceInfo::getCustomName();
+                    if (!dName || dName[0] == '\0') {
+                        dName = "CLICKER";
+                    }
+
+                    uint64_t clicks = counterApplet.getLifetimeClicks();
+                    uint16_t flappy = flappyBirdApplet.getHighScore();
+                    uint32_t justTen = timingGameApplet.getBestDeviationMs();
+                    uint32_t uptimeHrs = totalUptimeMinutes / 60;
+
+                    Serial.printf("{\"event\":\"stats\",\"name\":\"%s\",\"chip_id\":\"%s\",\"clicks\":%llu,\"flappy\":%u,\"just_ten\":%u,\"uptime_hrs\":%u}\n",
+                                  dName, chipId, clicks, flappy, justTen, uptimeHrs);
+                } else if (strstr(cmdBuf, "PING") != nullptr) {
+                    Serial.println("{\"event\":\"pong\"}");
+                }
+                cmdIdx = 0;
+            }
+        } else if (cmdIdx < sizeof(cmdBuf) - 1) {
+            cmdBuf[cmdIdx++] = c;
+        } else {
+            // Buffer overflow recovery
+            cmdIdx = 0;
+        }
+    }
 }
 
 void loop() {
     osManager.update();
     osManager.draw();
+
+    // Check serial telemetry requests (non-blocking)
+    handleSerialTelemetry();
+
+    // Track active runtime (persist once every hour to safeguard flash longevity)
+    uint32_t now = millis();
+    if (now - lastUptimeCheckMs >= 60000) {
+        lastUptimeCheckMs = now;
+        totalUptimeMinutes++;
+        if (totalUptimeMinutes % 60 == 0) {
+            sysPrefs.putUInt("minutes", totalUptimeMinutes);
+        }
+    }
+
     // Yield execution to FreeRTOS scheduler so IDLE task and TWDT watchdog on Core 1 are fed!
     delay(2);
 }

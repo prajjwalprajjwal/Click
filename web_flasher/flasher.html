@@ -753,6 +753,254 @@
       --text-color: #fafafa !important;
       font-family: var(--click-font-sans) !important;
     }
+
+    /* Community Leaderboard & Telemetry Sync Section */
+    .sync-section-card {
+      background: var(--click-card-bg);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border: 1px solid var(--click-border);
+      border-radius: 16px;
+      padding: 1.85rem 2rem;
+      margin-top: 2.25rem;
+      box-shadow: var(--click-shadow-card);
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .sync-section-card:hover {
+      border-color: rgba(255, 255, 255, 0.22);
+    }
+
+    .sync-header-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 0.85rem;
+      margin-bottom: 0.85rem;
+      padding-bottom: 0.85rem;
+      border-bottom: 1px solid var(--click-border);
+    }
+
+    .sync-title-box {
+      display: flex;
+      align-items: center;
+      gap: 0.65rem;
+    }
+
+    .sync-title-box h4 {
+      font-family: var(--click-font-display);
+      font-size: 1.3rem;
+      font-weight: 700;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      color: #ffffff;
+      margin: 0;
+    }
+
+    .sync-badge-live {
+      font-family: var(--click-font-mono);
+      font-size: 0.75rem;
+      font-weight: 700;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      padding: 0.25rem 0.65rem;
+      border-radius: 9999px;
+      background: rgba(16, 185, 129, 0.12);
+      border: 1px solid rgba(16, 185, 129, 0.3);
+      color: #34d399;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.45rem;
+    }
+
+    .sync-badge-live .pulse-green {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: #34d399;
+      box-shadow: 0 0 8px #34d399;
+    }
+
+    .sync-desc {
+      font-family: var(--click-font-sans);
+      font-size: 0.95rem;
+      line-height: 1.6;
+      color: var(--click-text-secondary);
+      margin-bottom: 1.25rem;
+      max-width: 820px;
+    }
+
+    .sync-desc a {
+      color: #34d399;
+      text-decoration: underline;
+      text-underline-offset: 3px;
+      font-weight: 600;
+    }
+
+    .sync-desc a:hover {
+      color: #6ee7b7;
+    }
+
+    .sync-feature-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 1.4rem;
+    }
+
+    .sync-feature-card {
+      background: rgba(24, 24, 27, 0.5);
+      border: 1px solid var(--click-border);
+      border-radius: 8px;
+      padding: 0.85rem 1.1rem;
+      font-size: 0.88rem;
+      color: var(--click-text-secondary);
+      line-height: 1.45;
+    }
+
+    .sync-feature-card strong {
+      font-family: var(--click-font-display);
+      font-size: 0.98rem;
+      font-weight: 700;
+      letter-spacing: 0.02em;
+      text-transform: uppercase;
+      color: #ffffff;
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+
+    .sync-action-row {
+      display: flex;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 1.25rem;
+    }
+
+    .btn-white-sync {
+      background: #ffffff;
+      border: 1px solid #ffffff;
+      color: #09090b;
+      font-family: var(--click-font-display);
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      padding: 0.85rem 1.85rem;
+      border-radius: 8px;
+      cursor: pointer;
+      box-shadow: 0 4px 20px rgba(255, 255, 255, 0.15);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.65rem;
+      transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+
+    .btn-white-sync:hover:not(:disabled) {
+      background: #f4f4f5;
+      transform: translateY(-1px);
+      box-shadow: 0 0 32px rgba(255, 255, 255, 0.3);
+    }
+
+    .btn-white-sync:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .btn-white-sync:disabled {
+      opacity: 0.65;
+      cursor: not-allowed;
+      transform: none;
+    }
+
+    .sync-status-text {
+      font-family: var(--click-font-sans);
+      font-size: 0.92rem;
+      color: var(--click-text-secondary);
+      font-weight: 500;
+    }
+
+    /* Telemetry Cyber HUD Readout */
+    .sync-telemetry-hud {
+      display: none;
+      margin-top: 1.5rem;
+      background: #09090b;
+      border: 1.5px solid rgba(255, 255, 255, 0.2);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+      animation: fadeIn 0.25s ease-out;
+    }
+
+    .hud-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      padding-bottom: 0.65rem;
+      margin-bottom: 0.95rem;
+    }
+
+    .hud-title {
+      font-family: var(--click-font-display);
+      font-size: 1.05rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .hud-status-badge {
+      font-family: var(--click-font-mono);
+      font-size: 0.72rem;
+      font-weight: 700;
+      color: #34d399;
+      background: rgba(16, 185, 129, 0.15);
+      padding: 0.2rem 0.55rem;
+      border-radius: 4px;
+    }
+
+    .hud-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 0.85rem;
+      margin-bottom: 0.85rem;
+    }
+
+    .hud-metric-box {
+      background: rgba(255, 255, 255, 0.04);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      border-radius: 6px;
+      padding: 0.65rem 0.85rem;
+    }
+
+    .hud-label {
+      font-family: var(--click-font-mono);
+      font-size: 0.72rem;
+      color: #71717a;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      margin-bottom: 0.2rem;
+    }
+
+    .hud-value {
+      font-family: var(--click-font-display);
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: #ffffff;
+    }
+
+    .hud-footer-note {
+      font-family: var(--click-font-sans);
+      font-size: 0.84rem;
+      color: #94a3b8;
+      line-height: 1.4;
+      padding-top: 0.45rem;
+      border-top: 1px solid rgba(255, 255, 255, 0.08);
+    }
   </style>
 </head>
 
@@ -800,7 +1048,11 @@
         </div>
 
         <div id="flasher-browser-status" class="browser-badge supported">
-          <!-- Populated by JavaScript -->
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="flex-shrink:0;">
+            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path>
+            <polyline points="22 4 12 14.01 9 11.01"></polyline>
+          </svg>
+          <span><strong>Web Serial Ready:</strong> Connect device via USB-C and click below to flash.</span>
         </div>
 
         <div class="control-group">
@@ -1006,6 +1258,136 @@
         </div>
       </section>
 
+      <!-- Community Leaderboard & Device Stats Sync Section -->
+      <section id="community-sync-section" style="margin-top: 1.5rem; margin-bottom: 2.5rem;">
+        <div style="text-align: center; margin-bottom: 1.75rem;">
+          <h2 class="fallbacks-title" style="justify-content: center; margin-bottom: 0.35rem;">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6"></path>
+              <path d="M18 9h1.5a2.5 2.5 0 0 0 0-5H18"></path>
+              <path d="M4 22h16"></path>
+              <path d="M10 14.66V17c0 .55-.45 1-1 1H7c-.55 0-1-.45-1-1v-2.34"></path>
+              <path d="M18 14.66V17c0 .55-.45 1-1 1h-2c-.55 0-1-.45-1-1v-2.34"></path>
+              <path d="M12 2v8"></path>
+              <path d="M6 4h12a2 2 0 0 1 2 2v6a6 6 0 0 1-6 6h0a6 6 0 0 1-6-6V6a2 2 0 0 1 2-2z"></path>
+            </svg>
+            <span>Community Applet Leaderboards & Device Sync</span>
+          </h2>
+          <p style="font-family: var(--click-font-sans); font-size: 0.95rem; color: var(--click-text-secondary); max-width: 680px; margin: 0 auto;">
+            Sync your lifetime achievements from all installed tactile applets directly to the community leaderboards at <a href="https://click.uprajjwal.com.np/" target="_blank" rel="noopener" style="color:#34d399;text-decoration:underline;">click.uprajjwal.com.np</a> without reflashing.
+          </p>
+        </div>
+
+        <!-- Main Sync Card -->
+        <div class="flasher-card" style="padding: 2rem;">
+          <div class="card-head" style="margin-bottom: 1.25rem;">
+            <h3>
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2.2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Zero-Flash Device Telemetry Sync</span>
+            </h3>
+            <span class="badge-pill" style="margin: 0; padding: 0.25rem 0.75rem; font-size: 0.78rem;">
+              <span class="pulse-dot"></span>
+              NON-DESTRUCTIVE READ
+            </span>
+          </div>
+
+          <p style="font-family: var(--click-font-sans); font-size: 0.95rem; line-height: 1.6; color: var(--click-text-secondary); margin-bottom: 1.5rem;">
+            Connect your Click over USB to read your saved milestones across <strong>all three tactile applets</strong>. This safely synchronizes your stats to the community site without clearing or modifying your local NVS flash partition (<code>0x9000</code>).
+          </p>
+
+          <!-- 3 Applet Cards Grid -->
+          <div class="sync-applets-grid">
+            <div class="sync-applet-card">
+              <div class="sync-applet-head">
+                <span class="sync-applet-name">Sisyphus</span>
+                <span class="sync-applet-badge">FIDGET / FOCUS</span>
+              </div>
+              <div class="sync-applet-desc">
+                Contributes newly pushed clicks toward the collective Community Boulder.
+              </div>
+            </div>
+
+            <div class="sync-applet-card">
+              <div class="sync-applet-head">
+                <span class="sync-applet-name">Just Ten</span>
+                <span class="sync-applet-badge">REACTION / ZEN</span>
+              </div>
+              <div class="sync-applet-desc">
+                Uploads your closest 10.0000s hold timing calibration score to the leaderboard.
+              </div>
+            </div>
+
+            <div class="sync-applet-card">
+              <div class="sync-applet-head">
+                <span class="sync-applet-name">Flappy Bird</span>
+                <span class="sync-applet-badge">TACTILE ARCADE</span>
+              </div>
+              <div class="sync-applet-desc">
+                Publishes your personal all-time high score run to the community hall of fame.
+              </div>
+            </div>
+          </div>
+
+          <div class="sync-action-row">
+            <button id="btn-sync-stats" class="btn-white-sync" type="button" style="width: auto; padding: 0.85rem 1.85rem;">
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <polyline points="1 20 1 14 7 14"></polyline>
+                <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+              </svg>
+              <span>Sync All Applet Stats</span>
+            </button>
+            <span id="sync-status-msg" class="sync-status-text">
+              Connect USB and click to read all applet milestones
+            </span>
+          </div>
+
+          <!-- Dynamic Telemetry Readout HUD -->
+          <div id="sync-telemetry-hud" class="sync-telemetry-hud">
+            <div class="hud-header">
+              <div class="hud-title">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#34d399" stroke-width="2">
+                  <rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect>
+                  <line x1="8" y1="21" x2="16" y2="21"></line>
+                  <line x1="12" y1="17" x2="12" y2="21"></line>
+                </svg>
+                <span>Click Hardware Telemetry Readout</span>
+              </div>
+              <span id="hud-status" class="hud-status-badge">CONNECTED</span>
+            </div>
+            <div class="hud-grid">
+              <div class="hud-metric-box">
+                <div class="hud-label">Device Name</div>
+                <div id="hud-name" class="hud-value">--</div>
+              </div>
+              <div class="hud-metric-box">
+                <div class="hud-label">Sisyphus Clicks</div>
+                <div id="hud-clicks" class="hud-value" style="color:#34d399;">--</div>
+              </div>
+              <div class="hud-metric-box">
+                <div class="hud-label">Just Ten Record</div>
+                <div id="hud-just-ten" class="hud-value" style="color:#a78bfa;">--</div>
+              </div>
+              <div class="hud-metric-box">
+                <div class="hud-label">Flappy Bird Best</div>
+                <div id="hud-flappy" class="hud-value" style="color:#38bdf8;">--</div>
+              </div>
+              <div class="hud-metric-box">
+                <div class="hud-label">Hardware Serial / Chip</div>
+                <div id="hud-uuid" class="hud-value" style="font-size:0.95rem;font-family:var(--click-font-mono);word-break:break-all;">--</div>
+              </div>
+            </div>
+            <div id="hud-note" class="hud-footer-note">
+              Telemetry verified directly from local NVS memory partition.
+            </div>
+          </div>
+        </div>
+      </section>
+
       <!-- Footer -->
       <footer class="flasher-footer">
         <p>Clicker ESP32 Project &bull; <a href="https://click.uprajjwal.com.np"
@@ -1129,6 +1511,7 @@
         populateSelect();
         renderTable();
         initCopy();
+        initSyncStats();
       }
 
       function applyInnerDialogTheme(ewDialog) {
@@ -1541,6 +1924,36 @@
               flex-shrink: 0;
             }
 
+            .modal-leaderboard-opt {
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              margin-top: -0.45rem;
+              margin-bottom: 1.15rem;
+            }
+            .modal-checkbox-label {
+              display: inline-flex;
+              align-items: center;
+              gap: 0.5rem;
+              font-family: 'Inter', -apple-system, sans-serif;
+              font-size: 0.85rem;
+              font-weight: 500;
+              color: #cbd5e1;
+              cursor: pointer;
+              user-select: none;
+              transition: color 0.15s ease;
+            }
+            .modal-checkbox-label:hover {
+              color: #ffffff;
+            }
+            .modal-checkbox {
+              accent-color: #10b981;
+              width: 15px;
+              height: 15px;
+              cursor: pointer;
+              margin: 0;
+            }
+
             .modal-instruction-text {
               font-family: 'Inter', -apple-system, sans-serif;
               font-size: 0.92rem;
@@ -1922,6 +2335,13 @@
                       <span class="badge-ver">${ver}</span>
                     </div>
 
+                    <div class="modal-leaderboard-opt">
+                      <label class="modal-checkbox-label">
+                        <input type="checkbox" id="modal-share-stats-checkbox" class="modal-checkbox" ${window._shareStatsToLeaderboard === true ? 'checked' : ''} />
+                        <span>Share stats to the leaderboard</span>
+                      </label>
+                    </div>
+
                     <p class="modal-instruction-text">
                       Select your preferred installation mode to begin flashing:
                     </p>
@@ -1963,6 +2383,16 @@
                       <span>Turbo upload speed active &bull; ~12 seconds completion</span>
                     </div>
                   `;
+
+                  const shareCheck = contentDiv.querySelector('#modal-share-stats-checkbox');
+                  if (shareCheck) {
+                    shareCheck.addEventListener('change', (e) => {
+                      window._shareStatsToLeaderboard = e.target.checked;
+                    });
+                    shareCheck.addEventListener('click', (e) => {
+                      e.stopPropagation();
+                    });
+                  }
 
                   const nameInput = contentDiv.querySelector('#modal-hardware-name-input');
                   if (nameInput) {
@@ -2231,6 +2661,265 @@
               });
             }
           });
+        });
+      function initSyncStats() {
+        const syncBtn = document.getElementById('btn-sync-stats');
+        const statusMsg = document.getElementById('sync-status-msg');
+        const hud = document.getElementById('sync-telemetry-hud');
+        const hudStatus = document.getElementById('hud-status');
+        const hudName = document.getElementById('hud-name');
+        const hudClicks = document.getElementById('hud-clicks');
+        const hudFlappy = document.getElementById('hud-flappy');
+        const hudJustTen = document.getElementById('hud-just-ten');
+        const hudUuid = document.getElementById('hud-uuid');
+        const hudNote = document.getElementById('hud-note');
+
+        if (!syncBtn) return;
+
+        // Configurable backend URL
+        const LEADERBOARD_API_URL = window._LEADERBOARD_API_URL || "https://click-leaderboard-api.emailprajjwal.workers.dev";
+
+        syncBtn.addEventListener('click', async () => {
+          if (!navigator.serial) {
+            if (statusMsg) {
+              statusMsg.style.color = '#fbbf24';
+              statusMsg.textContent = 'Web Serial requires Google Chrome, Edge, or Brave on desktop.';
+            }
+            return;
+          }
+
+          const originalText = syncBtn.innerHTML;
+          syncBtn.disabled = true;
+          syncBtn.innerHTML = `
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="animation:spin 1s linear infinite;">
+              <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+              <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
+            </svg>
+            <span>Connecting USB...</span>
+          `;
+
+          if (statusMsg) {
+            statusMsg.style.color = '#94a3b8';
+            statusMsg.textContent = 'Select your Click port in the browser prompt...';
+          }
+
+          let port = null;
+          let reader = null;
+
+          try {
+            port = await navigator.serial.requestPort();
+            await port.open({ baudRate: 115200 });
+
+            // Hardware reset pulse: kicks ESP32 out of ROM bootloader (boot:0x3) into normal SPI firmware (boot:0x13)
+            try {
+              await port.setSignals({ dataTerminalReady: false, requestToSend: true });
+              await new Promise(r => setTimeout(r, 120));
+              await port.setSignals({ dataTerminalReady: false, requestToSend: false });
+              await new Promise(r => setTimeout(r, 200));
+            } catch (e) {
+              console.warn('Could not pulse hardware reset signals:', e);
+            }
+
+            syncBtn.innerHTML = `
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="animation:spin 1s linear infinite;">
+                <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+                <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
+              </svg>
+              <span>Reading Telemetry...</span>
+            `;
+
+            const encoder = new TextEncoder();
+            const decoder = new TextDecoder();
+
+            let buffer = "";
+            let statsData = null;
+            let stopReading = false;
+
+            // Background reader stream
+            reader = port.readable.getReader();
+            const readPromise = (async () => {
+              try {
+                while (!stopReading) {
+                  const { value, done } = await reader.read();
+                  if (done) break;
+                  if (value) {
+                    buffer += decoder.decode(value, { stream: true });
+                    const lines = buffer.split(/[\r\n]+/);
+                    buffer = lines.pop() || "";
+                    for (const line of lines) {
+                      const trimmed = line.trim();
+                      if (trimmed.includes('"event":"stats"')) {
+                        const s = trimmed.indexOf('{');
+                        const e = trimmed.lastIndexOf('}');
+                        if (s !== -1 && e > s) {
+                          try {
+                            statsData = JSON.parse(trimmed.substring(s, e + 1));
+                            stopReading = true;
+                            return;
+                          } catch (err) {}
+                        }
+                      }
+                    }
+                  }
+                }
+              } catch (e) {
+                // Stream cancelled when finished
+              }
+            })();
+
+            async function sendCommand(cmdStr) {
+              if (!port.writable) return;
+              const w = port.writable.getWriter();
+              try {
+                await w.write(encoder.encode(cmdStr));
+              } finally {
+                w.releaseLock();
+              }
+            }
+
+            // Retry query every 400ms for up to 6 seconds to handle ESP32 boot/settling
+            const queryStart = Date.now();
+            let attempt = 1;
+
+            while (!statsData && (Date.now() - queryStart < 6000)) {
+              if (statusMsg) {
+                statusMsg.style.color = '#38bdf8';
+                statusMsg.textContent = attempt === 1
+                  ? 'Querying Click telemetry (GET_STATS)...'
+                  : `Click connected. Handshake attempt ${attempt}...`;
+              }
+
+              try {
+                await sendCommand("\r\nGET_STATS\r\n");
+              } catch (err) {}
+
+              const sliceStart = Date.now();
+              while (Date.now() - sliceStart < 400) {
+                if (statsData) break;
+                await new Promise(r => setTimeout(r, 40));
+              }
+              attempt++;
+            }
+
+            stopReading = true;
+            try { await reader.cancel(); } catch (e) {}
+            await readPromise;
+            try { reader.releaseLock(); } catch (e) {}
+            reader = null;
+
+            try { await port.close(); } catch (e) {}
+            port = null;
+
+            if (!statsData) {
+              throw new Error("No telemetry packet received. If this Click was flashed with older firmware, click 'Quick Flash' above to install firmware v0.1.0+ with telemetry support.");
+            }
+
+            function maskHardwareId(id) {
+              if (!id || id === 'Hardware ID' || id === '--') return '--';
+              const raw = String(id).trim();
+              const clean = raw.replace(/[^A-Za-z0-9]/g, '');
+              if (clean.length >= 4) {
+                return clean.slice(0, 2) + "......" + clean.slice(-2);
+              }
+              return raw;
+            }
+
+            const deviceName = statsData.name || 'CLICKER';
+            const deviceChipId = statsData.chip_id || statsData.uuid || '--';
+            const deviceClicks = Number(statsData.clicks || 0);
+            const deviceFlappy = Number(statsData.flappy !== undefined ? statsData.flappy : (statsData.flappy_high || 0));
+            const deviceJustTen = Number(statsData.just_ten || statsData.just_ten_best_ms || 0);
+
+            // Display telemetry in HUD immediately!
+            if (hud) {
+              hud.style.display = 'block';
+              if (hudName) hudName.textContent = deviceName;
+              if (hudClicks) hudClicks.textContent = deviceClicks.toLocaleString();
+              if (hudFlappy) hudFlappy.textContent = deviceFlappy.toLocaleString();
+              if (hudJustTen) {
+                hudJustTen.textContent = deviceJustTen > 0 ? `+${(deviceJustTen / 1000).toFixed(4)}s` : 'No Record';
+              }
+              if (hudUuid) hudUuid.textContent = maskHardwareId(deviceChipId);
+            }
+
+            if (statusMsg) {
+              statusMsg.style.color = '#38bdf8';
+              statusMsg.textContent = `Found "${deviceName}" (${deviceClicks.toLocaleString()} clicks). Syncing all applets...`;
+            }
+
+            // Sync to cloud backend
+            let cloudSuccess = false;
+            try {
+              const resp = await fetch(`${LEADERBOARD_API_URL}/api/sync`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  chip_id: deviceChipId,
+                  name: deviceName,
+                  clicks: deviceClicks,
+                  flappy: deviceFlappy,
+                  just_ten: deviceJustTen,
+                  uptime_hrs: Number(statsData.uptime_hrs || 0)
+                })
+              });
+
+              if (resp.ok) {
+                const result = await resp.json();
+                cloudSuccess = true;
+                if (statusMsg) {
+                  statusMsg.style.color = '#34d399';
+                  statusMsg.textContent = `✓ Synced! +${Number(result.credited_delta || 0).toLocaleString()} clicks added to Global Boulder!`;
+                }
+                if (hudStatus) {
+                  hudStatus.textContent = 'SYNCED TO CLOUD';
+                  hudStatus.style.color = '#34d399';
+                }
+                if (hudNote) {
+                  hudNote.textContent = 'Telemetry verified and published to the Cloudflare D1 leaderboard.';
+                }
+              }
+            } catch (cloudErr) {
+              console.warn('Backend API not reachable:', cloudErr);
+            }
+
+            if (!cloudSuccess) {
+              if (statusMsg) {
+                statusMsg.style.color = '#38bdf8';
+                statusMsg.textContent = `✓ Telemetry verified via USB! Read ${deviceClicks.toLocaleString()} clicks from "${deviceName}".`;
+              }
+              if (hudStatus) {
+                hudStatus.textContent = 'USB VERIFIED';
+                hudStatus.style.color = '#38bdf8';
+              }
+              if (hudNote) {
+                hudNote.textContent = 'Telemetry successfully queried from local NVS memory partition via USB.';
+              }
+            }
+
+          } catch (err) {
+            if (reader) {
+              try { await reader.cancel(); } catch (e) {}
+              try { reader.releaseLock(); } catch (e) {}
+            }
+            if (port) {
+              try { await port.close(); } catch (e) {}
+            }
+            if (err && (err.name === 'NotFoundError' || err.message?.includes('No port selected') || err.message?.includes('cancelled'))) {
+              if (statusMsg) {
+                statusMsg.style.color = '#94a3b8';
+                statusMsg.textContent = 'USB connection cancelled (no device selected).';
+              }
+            } else {
+              console.error(err);
+              if (statusMsg) {
+                statusMsg.style.color = '#f87171';
+                statusMsg.textContent = `Sync notice: ${err.message || err}`;
+              }
+            }
+          } finally {
+            syncBtn.disabled = false;
+            syncBtn.innerHTML = originalText;
+          }
         });
       }
 

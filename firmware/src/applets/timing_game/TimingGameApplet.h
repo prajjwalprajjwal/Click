@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <stddef.h>
+#include <Preferences.h>
 #include "Applet.h"
 
 // Automatically includes pre-converted user PNG screen assets
@@ -23,6 +24,8 @@ private:
     uint64_t holdStartUs = 0;
     uint64_t holdDurationUs = 0;
     uint32_t resultDisplayTime = 0;
+    Preferences prefs;
+    uint32_t bestDeviationMs = 0;
 
     static void formatSeconds4(uint64_t micros, char* buffer, size_t bufferSize);
     static void formatDeviation4(int64_t diffMicros, char* buffer, size_t bufferSize);
@@ -33,6 +36,8 @@ private:
 
 public:
     void init() override;
+    void preloadState();
+    uint32_t getBestDeviationMs() const { return bestDeviationMs; }
     void update() override;
     void draw() override;
     void cleanup() override;

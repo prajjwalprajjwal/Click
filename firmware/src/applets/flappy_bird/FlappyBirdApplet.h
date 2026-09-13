@@ -87,6 +87,9 @@ public:
         }
         jumpRequested = true;
     }
+
+    void preloadState();
+    uint16_t getHighScore() const { return highScore; }
 };
 
 #endif // FLAPPY_BIRD_APPLET_H

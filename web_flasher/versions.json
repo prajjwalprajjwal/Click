@@ -8,8 +8,8 @@
       "manifest": "releases/v0.1.0/manifest.json",
       "bin": "releases/v0.1.0/firmware.bin",
       "factory_bin": "releases/v0.1.0/factory_firmware.bin",
-      "size": 570368,
-      "factory_size": 635904,
+      "size": 571552,
+      "factory_size": 637088,
       "is_latest": true
     },
     {

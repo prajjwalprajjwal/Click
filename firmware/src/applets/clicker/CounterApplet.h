@@ -64,6 +64,8 @@ public:
     void onBothHeld() override;
 
     void preloadState();
+    uint64_t getLifetimeClicks() const { return counter.getLifetimeClicks(); }
+    const char* getCountString() const { return counter.getString(); }
 };
 
 #endif // COUNTER_APPLET_H

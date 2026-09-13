@@ -1,0 +1,55 @@
+{
+  "$schema": "https://click.uprajjwal.com.np/schema/leaderboard.v1.json",
+  "meta": {
+    "version": "1.1.0",
+    "updated_at": "2026-09-13T07:00:00Z",
+    "total_registered_devices": 0,
+    "global_boulder_clicks": 0,
+    "boulder_milestone_target": 1000000,
+    "boulder_progress_pct": 0.0,
+    "live_api_endpoint": "https://click-leaderboard-api.emailprajjwal.workers.dev/api/leaderboard",
+    "sync_endpoint": "https://click-leaderboard-api.emailprajjwal.workers.dev/api/sync",
+    "fallback_endpoint": "https://flashclick.uprajjwal.com.np/leaderboard.json"
+  },
+  "applets": {
+    "sisyphus": {
+      "id": "sisyphus",
+      "name": "Sisyphus",
+      "tags": ["ADHD", "FIDGET"],
+      "headline": "Every click moves Sisyphus one step up the hill.",
+      "description": "The boulder always rolls back. But you keep going. A click counter with mythology wrapped around it, turning fidgeting into a story.",
+      "stat_type": "cumulative_counter",
+      "primary_metric": "Clicks",
+      "unit": "clicks",
+      "sort_direction": "desc",
+      "community_total": 0,
+      "leaderboard": []
+    },
+    "just_ten": {
+      "id": "just_ten",
+      "name": "Just Ten",
+      "tags": ["ANXIETY", "BREATHING"],
+      "headline": "Hold the button for exactly 10 seconds.",
+      "description": "Looks like a reaction game. The expanding circle quietly syncs your breathing, grounding you mid-stress without anyone noticing.",
+      "stat_type": "precision_timing",
+      "primary_metric": "Hold Timing Deviation",
+      "target_seconds": 10.0,
+      "unit": "seconds",
+      "sort_direction": "asc",
+      "perfect_scores_count": 0,
+      "leaderboard": []
+    },
+    "flappy_bird": {
+      "id": "flappy_bird",
+      "name": "Flappy Bird",
+      "tags": ["GAME", "FIDGET"],
+      "headline": "The classic, on your Click.",
+      "description": "One button, one bird, infinite pipes. Pure tactile fidget, no touch screen, no ads, no algorithm.",
+      "stat_type": "high_score",
+      "primary_metric": "High Score",
+      "unit": "pipes",
+      "sort_direction": "desc",
+      "leaderboard": []
+    }
+  }
+}

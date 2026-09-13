@@ -5,12 +5,19 @@
 #include "Display.h"
 #include "fonts/ThemeFonts.h"
 
+void TimingGameApplet::preloadState() {
+    prefs.begin("click_stats", true);
+    bestDeviationMs = prefs.getUInt("just_ten_best", 0);
+    prefs.end();
+}
+
 void TimingGameApplet::init() {
     state = IDLE;
     wasPressing = false;
     holdStartUs = 0;
     holdDurationUs = 0;
     resultDisplayTime = 0;
+    preloadState();
 }
 
 bool TimingGameApplet::isActionPressed() const {
@@ -96,6 +103,16 @@ void TimingGameApplet::update() {
         holdDurationUs = micros() - holdStartUs;
         state = RESULT;
         resultDisplayTime = now;
+
+        int64_t diffUs = static_cast<int64_t>(holdDurationUs) - 10000000LL;
+        uint32_t devMs = static_cast<uint32_t>(std::abs(diffUs) / 1000);
+        if (devMs == 0) devMs = 1; // 1ms for perfect hit to ensure it is > 0 in SQL
+        if (bestDeviationMs == 0 || devMs < bestDeviationMs) {
+            bestDeviationMs = devMs;
+            prefs.begin("click_stats", false);
+            prefs.putUInt("just_ten_best", bestDeviationMs);
+            prefs.end();
+        }
     }
 
     wasPressing = pressing;

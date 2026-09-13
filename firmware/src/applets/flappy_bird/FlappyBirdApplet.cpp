@@ -1,15 +1,17 @@
 #include "FlappyBirdApplet.h"
 #include "Display.h"
 
-void FlappyBirdApplet::init() {
-    jumpRequested = false;
-    gameState     = STATE_IDLE;
-
-    // Read High Score from ESP32 NVS memory (0x9000 region)
+void FlappyBirdApplet::preloadState() {
+    // Read High Score from ESP32 NVS memory
     prefs.begin("click_stats", true);
     highScore = prefs.getUInt("flappy_hi", 0);
     prefs.end();
+}
 
+void FlappyBirdApplet::init() {
+    jumpRequested = false;
+    gameState     = STATE_IDLE;
+    preloadState();
     resetGame();
 }
 

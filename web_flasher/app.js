@@ -159,6 +159,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initVersionSelector();
   renderDownloadsTable();
   initClipboardButtons();
+  initSyncStats();
 });
 
 function checkBrowserCompatibility() {
@@ -781,6 +782,36 @@ function injectDialogStyles(dialog) {
         flex-shrink: 0;
       }
 
+      .modal-leaderboard-opt {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-top: -0.45rem;
+        margin-bottom: 1.15rem;
+      }
+      .modal-checkbox-label {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-family: 'Inter', -apple-system, sans-serif;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: #cbd5e1;
+        cursor: pointer;
+        user-select: none;
+        transition: color 0.15s ease;
+      }
+      .modal-checkbox-label:hover {
+        color: #ffffff;
+      }
+      .modal-checkbox {
+        accent-color: #10b981;
+        width: 15px;
+        height: 15px;
+        cursor: pointer;
+        margin: 0;
+      }
+
       .modal-instruction-text {
         font-family: 'Inter', -apple-system, sans-serif;
         font-size: 0.92rem;
@@ -1164,6 +1195,13 @@ if (typeof customElements !== 'undefined') {
                 <span class="badge-ver">${ver}</span>
               </div>
 
+              <div class="modal-leaderboard-opt">
+                <label class="modal-checkbox-label">
+                  <input type="checkbox" id="modal-share-stats-checkbox" class="modal-checkbox" ${window._shareStatsToLeaderboard === true ? 'checked' : ''} />
+                  <span>Share stats to the leaderboard</span>
+                </label>
+              </div>
+
               <p class="modal-instruction-text">
                 Select your preferred installation mode to begin flashing:
               </p>
@@ -1205,6 +1243,16 @@ if (typeof customElements !== 'undefined') {
                 <span>Turbo upload speed active &bull; ~12 seconds completion</span>
               </div>
             `;
+
+            const shareCheck = contentDiv.querySelector('#modal-share-stats-checkbox');
+            if (shareCheck) {
+              shareCheck.addEventListener('change', (e) => {
+                window._shareStatsToLeaderboard = e.target.checked;
+              });
+              shareCheck.addEventListener('click', (e) => {
+                e.stopPropagation();
+              });
+            }
 
             const nameInput = contentDiv.querySelector('#modal-hardware-name-input');
             if (nameInput) {
@@ -1454,6 +1502,266 @@ function initClipboardButtons() {
         });
       }
     });
+  });
+}
+
+function initSyncStats() {
+  const syncBtn = document.getElementById('btn-sync-stats');
+  const statusMsg = document.getElementById('sync-status-msg');
+  const hud = document.getElementById('sync-telemetry-hud');
+  const hudStatus = document.getElementById('hud-status');
+  const hudName = document.getElementById('hud-name');
+  const hudClicks = document.getElementById('hud-clicks');
+  const hudFlappy = document.getElementById('hud-flappy');
+  const hudJustTen = document.getElementById('hud-just-ten');
+  const hudUuid = document.getElementById('hud-uuid');
+  const hudNote = document.getElementById('hud-note');
+
+  if (!syncBtn) return;
+
+  const LEADERBOARD_API_URL = window._LEADERBOARD_API_URL || "https://click-leaderboard-api.emailprajjwal.workers.dev";
+
+  syncBtn.addEventListener('click', async () => {
+    if (!navigator.serial) {
+      if (statusMsg) {
+        statusMsg.style.color = '#fbbf24';
+        statusMsg.textContent = 'Web Serial requires Google Chrome, Edge, or Brave on desktop.';
+      }
+      return;
+    }
+
+    const originalText = syncBtn.innerHTML;
+    syncBtn.disabled = true;
+    syncBtn.innerHTML = `
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="animation:spin 1s linear infinite;">
+        <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+        <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
+      </svg>
+      <span>Connecting USB...</span>
+    `;
+
+    if (statusMsg) {
+      statusMsg.style.color = '#94a3b8';
+      statusMsg.textContent = 'Select your Click port in the browser prompt...';
+    }
+
+    let port = null;
+    let reader = null;
+
+    try {
+      port = await navigator.serial.requestPort();
+      await port.open({ baudRate: 115200 });
+
+      // Hardware reset pulse: kicks ESP32 out of ROM bootloader (boot:0x3) into normal SPI firmware (boot:0x13)
+      try {
+        await port.setSignals({ dataTerminalReady: false, requestToSend: true });
+        await new Promise(r => setTimeout(r, 120));
+        await port.setSignals({ dataTerminalReady: false, requestToSend: false });
+        await new Promise(r => setTimeout(r, 200));
+      } catch (e) {
+        console.warn('Could not pulse hardware reset signals:', e);
+      }
+
+      syncBtn.innerHTML = `
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="animation:spin 1s linear infinite;">
+          <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
+          <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
+        </svg>
+        <span>Reading Telemetry...</span>
+      `;
+
+      const encoder = new TextEncoder();
+      const decoder = new TextDecoder();
+
+      let buffer = "";
+      let statsData = null;
+      let stopReading = false;
+
+      // Background reader stream
+      reader = port.readable.getReader();
+      const readPromise = (async () => {
+        try {
+          while (!stopReading) {
+            const { value, done } = await reader.read();
+            if (done) break;
+            if (value) {
+              buffer += decoder.decode(value, { stream: true });
+              const lines = buffer.split(/[\r\n]+/);
+              buffer = lines.pop() || "";
+              for (const line of lines) {
+                const trimmed = line.trim();
+                if (trimmed.includes('"event":"stats"')) {
+                  const s = trimmed.indexOf('{');
+                  const e = trimmed.lastIndexOf('}');
+                  if (s !== -1 && e > s) {
+                    try {
+                      statsData = JSON.parse(trimmed.substring(s, e + 1));
+                      stopReading = true;
+                      return;
+                    } catch (err) {}
+                  }
+                }
+              }
+            }
+          }
+        } catch (e) {
+          // Stream cancelled when finished
+        }
+      })();
+
+      async function sendCommand(cmdStr) {
+        if (!port.writable) return;
+        const w = port.writable.getWriter();
+        try {
+          await w.write(encoder.encode(cmdStr));
+        } finally {
+          w.releaseLock();
+        }
+      }
+
+      // Retry query every 400ms for up to 6 seconds to handle ESP32 boot/settling
+      const queryStart = Date.now();
+      let attempt = 1;
+
+      while (!statsData && (Date.now() - queryStart < 6000)) {
+        if (statusMsg) {
+          statusMsg.style.color = '#38bdf8';
+          statusMsg.textContent = attempt === 1
+            ? 'Querying Click telemetry (GET_STATS)...'
+            : `Click connected. Handshake attempt ${attempt}...`;
+        }
+
+        try {
+          await sendCommand("\r\nGET_STATS\r\n");
+        } catch (err) {}
+
+        const sliceStart = Date.now();
+        while (Date.now() - sliceStart < 400) {
+          if (statsData) break;
+          await new Promise(r => setTimeout(r, 40));
+        }
+        attempt++;
+      }
+
+      stopReading = true;
+      try { await reader.cancel(); } catch (e) {}
+      await readPromise;
+      try { reader.releaseLock(); } catch (e) {}
+      reader = null;
+
+      try { await port.close(); } catch (e) {}
+      port = null;
+
+      if (!statsData) {
+        throw new Error("No telemetry packet received. If this Click was flashed with older firmware, click 'Quick Flash' above to install firmware v0.1.0+ with telemetry support.");
+      }
+
+      function maskHardwareId(id) {
+        if (!id || id === 'Hardware ID' || id === '--') return '--';
+        const raw = String(id).trim();
+        const clean = raw.replace(/[^A-Za-z0-9]/g, '');
+        if (clean.length >= 4) {
+          return clean.slice(0, 2) + "......" + clean.slice(-2);
+        }
+        return raw;
+      }
+
+      const deviceName = statsData.name || 'CLICKER';
+      const deviceChipId = statsData.chip_id || statsData.uuid || '--';
+      const deviceClicks = Number(statsData.clicks || 0);
+      const deviceFlappy = Number(statsData.flappy !== undefined ? statsData.flappy : (statsData.flappy_high || 0));
+      const deviceJustTen = Number(statsData.just_ten || statsData.just_ten_best_ms || 0);
+
+      // Display telemetry in HUD immediately!
+      if (hud) {
+        hud.style.display = 'block';
+        if (hudName) hudName.textContent = deviceName;
+        if (hudClicks) hudClicks.textContent = deviceClicks.toLocaleString();
+        if (hudFlappy) hudFlappy.textContent = deviceFlappy.toLocaleString();
+        if (hudJustTen) {
+          hudJustTen.textContent = deviceJustTen > 0 ? `+${(deviceJustTen / 1000).toFixed(4)}s` : 'No Record';
+        }
+        if (hudUuid) hudUuid.textContent = maskHardwareId(deviceChipId);
+      }
+
+      if (statusMsg) {
+        statusMsg.style.color = '#38bdf8';
+        statusMsg.textContent = `Found "${deviceName}" (${deviceClicks.toLocaleString()} clicks). Syncing all applets...`;
+      }
+
+      // Sync to cloud backend
+      let cloudSuccess = false;
+      try {
+        const resp = await fetch(`${LEADERBOARD_API_URL}/api/sync`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            chip_id: deviceChipId,
+            name: deviceName,
+            clicks: deviceClicks,
+            flappy: deviceFlappy,
+            just_ten: deviceJustTen,
+            uptime_hrs: Number(statsData.uptime_hrs || 0)
+          })
+        });
+
+        if (resp.ok) {
+          const result = await resp.json();
+          cloudSuccess = true;
+          if (statusMsg) {
+            statusMsg.style.color = '#34d399';
+            statusMsg.textContent = `✓ Synced! +${Number(result.credited_delta || 0).toLocaleString()} clicks added to Global Boulder!`;
+          }
+          if (hudStatus) {
+            hudStatus.textContent = 'SYNCED TO CLOUD';
+            hudStatus.style.color = '#34d399';
+          }
+          if (hudNote) {
+            hudNote.textContent = 'Telemetry verified and published to the Cloudflare D1 leaderboard.';
+          }
+        }
+      } catch (cloudErr) {
+        console.warn('Backend API not reachable:', cloudErr);
+      }
+
+      if (!cloudSuccess) {
+        if (statusMsg) {
+          statusMsg.style.color = '#38bdf8';
+          statusMsg.textContent = `✓ Telemetry verified via USB! Read ${deviceClicks.toLocaleString()} clicks from "${deviceName}".`;
+        }
+        if (hudStatus) {
+          hudStatus.textContent = 'USB VERIFIED';
+          hudStatus.style.color = '#38bdf8';
+        }
+        if (hudNote) {
+          hudNote.textContent = 'Telemetry successfully queried from local NVS memory partition via USB.';
+        }
+      }
+
+    } catch (err) {
+      if (reader) {
+        try { await reader.cancel(); } catch (e) {}
+        try { reader.releaseLock(); } catch (e) {}
+      }
+      if (port) {
+        try { await port.close(); } catch (e) {}
+      }
+      if (err && (err.name === 'NotFoundError' || err.message?.includes('No port selected') || err.message?.includes('cancelled'))) {
+        if (statusMsg) {
+          statusMsg.style.color = '#94a3b8';
+          statusMsg.textContent = 'USB connection cancelled (no device selected).';
+        }
+      } else {
+        console.error(err);
+        if (statusMsg) {
+          statusMsg.style.color = '#f87171';
+          statusMsg.textContent = `Sync notice: ${err.message || err}`;
+        }
+      }
+    } finally {
+      syncBtn.disabled = false;
+      syncBtn.innerHTML = originalText;
+    }
   });
 }
 
