@@ -53,10 +53,33 @@ export default {
           await db.prepare("ALTER TABLE devices ADD COLUMN just_ten_time REAL DEFAULT 0").run();
         } catch (e) {}
 
-        // Global stats
+        // Global stats from global_stats table
         const globalRow = await db.prepare(
           "SELECT total_boulder_clicks, total_devices, last_updated FROM global_stats WHERE id = 1"
         ).first();
+
+        // Also query the live devices table aggregate to guarantee accuracy across ALL devices
+        const aggCheck = await db.prepare(
+          "SELECT COUNT(*) as dev_count, COALESCE(SUM(total_clicks), 0) as sum_clicks FROM devices"
+        ).first();
+
+        function maskSerial(id) {
+          if (!id) return "--";
+          const str = String(id).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
+          if (str.length >= 4) return str.slice(0, 2) + "......" + str.slice(-2);
+          return str;
+        }
+
+        // Boulder clicks guaranteed to reflect all community contributions
+        const totalBoulderClicks = Math.max(
+          globalRow ? globalRow.total_boulder_clicks : 0,
+          aggCheck ? aggCheck.sum_clicks : 0
+        );
+        const totalDevices = Math.max(
+          globalRow ? globalRow.total_devices : 0,
+          aggCheck ? aggCheck.dev_count : 0
+        );
+        const targetClicks = 1000000;
 
         // Top 10 Sisyphus clickers
         const topSisyphus = await db.prepare(
@@ -79,17 +102,6 @@ export default {
         const topFlappy = await db.prepare(
           "SELECT chip_id, device_name, flappy_high_score, last_synced_at FROM devices WHERE flappy_high_score > 0 ORDER BY flappy_high_score DESC LIMIT 10"
         ).all();
-
-        function maskSerial(id) {
-          if (!id) return "--";
-          const str = String(id).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
-          if (str.length >= 4) return str.slice(0, 2) + "......" + str.slice(-2);
-          return str;
-        }
-
-        const totalBoulderClicks = globalRow ? globalRow.total_boulder_clicks : 0;
-        const totalDevices = globalRow ? globalRow.total_devices : 0;
-        const targetClicks = 1000000;
 
         const sisyphusList = (topSisyphus && topSisyphus.results || []).map((row, idx) => ({
           rank: idx + 1,
@@ -253,7 +265,7 @@ export default {
           await db.batch([
             db.prepare(
               "INSERT INTO devices (chip_id, device_name, total_clicks, last_synced_clicks, last_synced_at, flappy_high_score, just_ten_time, just_ten_best_ms, uptime_hrs) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)"
-            ).bind(chipId, deviceName, clicks, clicks, flappyScore, justTenTime, initialJustTenBestMs, uptimeHrs),
+            ).bind(chipId, deviceName, creditedDelta, clicks, flappyScore, justTenTime, initialJustTenBestMs, uptimeHrs),
             db.prepare(
               "UPDATE global_stats SET total_boulder_clicks = total_boulder_clicks + ?, total_devices = total_devices + 1, last_updated = CURRENT_TIMESTAMP WHERE id = 1"
             ).bind(creditedDelta),
@@ -263,7 +275,18 @@ export default {
           ]);
         } else {
           // Existing device: calculate delta
-          const rawDelta = clicks - (existing.last_synced_clicks || 0);
+          const lastSynced = existing.last_synced_clicks || 0;
+          let rawDelta = 0;
+
+          if (clicks >= lastSynced) {
+            // Normal progression: device clicked forward
+            rawDelta = clicks - lastSynced;
+          } else {
+            // Device was reset / flash-erased!
+            // All clicks on the device since reset are brand-new clicks!
+            // "a past click is click even if the device is reset"
+            rawDelta = clicks;
+          }
 
           if (rawDelta > 0) {
             // Calculate time elapsed in hours since last sync
@@ -272,12 +295,15 @@ export default {
             const elapsedHours = Math.max(1, (nowTime - lastTime) / (1000 * 60 * 60));
             const elapsedDays = Math.max(1, elapsedHours / 24);
 
-            // Maximum allowed human velocity: 40,000 clicks per day
-            const maxAllowed = Math.ceil(elapsedDays * 40000);
+            // Maximum allowed human velocity: 40,000 clicks per day (min 5,000 for rapid active bursts)
+            const maxAllowed = Math.max(5000, Math.ceil(elapsedDays * 40000));
             creditedDelta = Math.min(rawDelta, maxAllowed);
           } else {
             creditedDelta = 0;
           }
+
+          // New cumulative total for this hardware (never decreases)
+          const newTotalClicks = (existing.total_clicks || 0) + creditedDelta;
 
           const newFlappy = Math.max(existing.flappy_high_score || 0, flappyScore);
           
@@ -296,18 +322,17 @@ export default {
             }
           }
           const newJustTenMs = newJustTenTime > 0 ? Math.round(Math.abs(newJustTenTime - 10.0) * 1000) : 0;
-          const newTotalClicks = Math.max(existing.total_clicks || 0, clicks);
 
           await db.batch([
             db.prepare(
               "UPDATE devices SET device_name = ?, total_clicks = ?, last_synced_clicks = ?, last_synced_at = CURRENT_TIMESTAMP, flappy_high_score = ?, just_ten_time = ?, just_ten_best_ms = ?, uptime_hrs = MAX(uptime_hrs, ?) WHERE chip_id = ?"
-            ).bind(deviceName, newTotalClicks, newTotalClicks, newFlappy, newJustTenTime, newJustTenMs, uptimeHrs, chipId),
+            ).bind(deviceName, newTotalClicks, clicks, newFlappy, newJustTenTime, newJustTenMs, uptimeHrs, chipId),
             db.prepare(
               "UPDATE global_stats SET total_boulder_clicks = total_boulder_clicks + ?, last_updated = CURRENT_TIMESTAMP WHERE id = 1"
             ).bind(creditedDelta),
             db.prepare(
               "INSERT INTO sync_log (chip_id, delta_claimed, delta_credited) VALUES (?, ?, ?)"
-            ).bind(chipId, Math.max(0, rawDelta), creditedDelta),
+            ).bind(chipId, rawDelta, creditedDelta),
           ]);
         }
 

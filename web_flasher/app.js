@@ -1706,27 +1706,10 @@ function initSyncStats() {
         if (resp.ok) {
           const result = await resp.json();
           cloudSuccess = true;
-
-          // Two-way sync: If cloud has higher scores, sync them back to the device!
-          try {
-            const cloudClicks = Number(result.cloud_clicks || 0);
-            const cloudFlappy = Number(result.cloud_flappy || 0);
-            const cloudJustTen = Number(result.cloud_just_ten || 0);
-
-            if (cloudClicks > deviceClicks) {
-              await sendCommand(`SET_CLICKS ${cloudClicks}\r\n`);
-              if (hudClicks) hudClicks.textContent = cloudClicks.toLocaleString();
-            }
-            if (cloudFlappy > deviceFlappy || (cloudJustTen > 0 && (deviceJustTen === 0 || Math.abs(cloudJustTen - 10.0) < Math.abs(deviceJustTen - 10.0)))) {
-              await sendCommand(`SET_STATS CLICKS=${cloudClicks} FLAPPY=${cloudFlappy} JUST_TEN=${cloudJustTen}\r\n`);
-            }
-          } catch (syncBackErr) {
-            console.warn('Sync back to device notice:', syncBackErr);
-          }
-
+          // Note: Hardware counter is never overwritten on sync to respect local device state and resets.
           if (statusMsg) {
             statusMsg.style.color = '#34d399';
-            statusMsg.textContent = `✓ Synced! +${Number(result.credited_delta || 0).toLocaleString()} clicks added to Global Boulder!`;
+            statusMsg.textContent = `✓ Synced! +${Number(result.credited_delta || 0).toLocaleString()} clicks added to Global Boulder! Total: ${Number(result.cloud_clicks || deviceClicks).toLocaleString()}`;
           }
           if (hudStatus) {
             hudStatus.textContent = 'SYNCED TO CLOUD';
