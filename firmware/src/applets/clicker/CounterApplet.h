@@ -42,7 +42,6 @@ private:
     static const uint32_t CLOUD_DRIFT_INTERVAL_MS = 100; // 10 FPS automatic cloud drift
 
     void loadState();
-    void persistNow();
     void persistIfNeeded(bool force);
     void handleClick();
     void resetAll();
@@ -64,6 +63,8 @@ public:
     void onBothHeld() override;
 
     void preloadState();
+    void persistNow();
+    void setLifetimeClicks(uint64_t val);
     uint64_t getLifetimeClicks() const { return counter.getLifetimeClicks(); }
     const char* getCountString() const { return counter.getString(); }
 };

@@ -204,7 +204,7 @@ void setup() {
 
 static void handleSerialTelemetry() {
     if (!Serial.available()) return;
-    static char cmdBuf[32];
+    static char cmdBuf[64];
     static uint8_t cmdIdx = 0;
     while (Serial.available()) {
         char c = static_cast<char>(Serial.read());
@@ -218,6 +218,9 @@ static void handleSerialTelemetry() {
                     }
                 }
                 if (strstr(cmdBuf, "GET_STATS") != nullptr || strstr(cmdBuf, "STATS") != nullptr) {
+                    // Flush any active session clicks immediately to NVS before reading
+                    counterApplet.persistNow();
+
                     uint64_t mac = ESP.getEfuseMac();
                     char chipId[16];
                     snprintf(chipId, sizeof(chipId), "%04X%08X", static_cast<uint16_t>(mac >> 32), static_cast<uint32_t>(mac));
@@ -228,11 +231,43 @@ static void handleSerialTelemetry() {
 
                     uint64_t clicks = counterApplet.getLifetimeClicks();
                     uint16_t flappy = flappyBirdApplet.getHighScore();
-                    uint32_t justTen = timingGameApplet.getBestDeviationMs();
+                    double justTen = timingGameApplet.getBestTimeSec();
                     uint32_t uptimeHrs = totalUptimeMinutes / 60;
 
-                    Serial.printf("{\"event\":\"stats\",\"name\":\"%s\",\"chip_id\":\"%s\",\"clicks\":%llu,\"flappy\":%u,\"just_ten\":%u,\"uptime_hrs\":%u}\n",
+                    Serial.printf("{\"event\":\"stats\",\"name\":\"%s\",\"chip_id\":\"%s\",\"clicks\":%llu,\"flappy\":%u,\"just_ten\":%.4f,\"uptime_hrs\":%u}\n",
                                   dName, chipId, clicks, flappy, justTen, uptimeHrs);
+                } else if (strstr(cmdBuf, "SET_CLICKS") != nullptr) {
+                    char* p = strstr(cmdBuf, "SET_CLICKS") + 10;
+                    while (*p == ' ' || *p == '=') p++;
+                    uint64_t val = strtoull(p, nullptr, 10);
+                    if (val > 0) {
+                        counterApplet.setLifetimeClicks(val);
+                        Serial.printf("{\"event\":\"clicks_updated\",\"clicks\":%llu}\n", val);
+                    }
+                } else if (strstr(cmdBuf, "SET_STATS") != nullptr || strstr(cmdBuf, "RESTORE") != nullptr) {
+                    char* pClicks = strstr(cmdBuf, "CLICKS=");
+                    if (pClicks) {
+                        uint64_t val = strtoull(pClicks + 7, nullptr, 10);
+                        if (val > counterApplet.getLifetimeClicks()) {
+                            counterApplet.setLifetimeClicks(val);
+                        }
+                    }
+                    char* pFlappy = strstr(cmdBuf, "FLAPPY=");
+                    if (pFlappy) {
+                        uint16_t val = static_cast<uint16_t>(strtoul(pFlappy + 7, nullptr, 10));
+                        flappyBirdApplet.setHighScore(val);
+                    }
+                    char* pJustTen = strstr(cmdBuf, "JUST_TEN=");
+                    if (pJustTen) {
+                        double sec = strtod(pJustTen + 9, nullptr);
+                        if (sec > 0.0) {
+                            timingGameApplet.setBestTimeUs(static_cast<uint32_t>(sec * 1000000.0));
+                        }
+                    }
+                    Serial.printf("{\"event\":\"stats_restored\",\"clicks\":%llu,\"flappy\":%u,\"just_ten\":%.4f}\n",
+                                  counterApplet.getLifetimeClicks(),
+                                  flappyBirdApplet.getHighScore(),
+                                  timingGameApplet.getBestTimeSec());
                 } else if (strstr(cmdBuf, "PING") != nullptr) {
                     Serial.println("{\"event\":\"pong\"}");
                 }

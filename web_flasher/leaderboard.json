@@ -32,10 +32,10 @@
       "headline": "Hold the button for exactly 10 seconds.",
       "description": "Looks like a reaction game. The expanding circle quietly syncs your breathing, grounding you mid-stress without anyone noticing.",
       "stat_type": "precision_timing",
-      "primary_metric": "Hold Timing Deviation",
+      "primary_metric": "Best Time",
       "target_seconds": 10.0,
       "unit": "seconds",
-      "sort_direction": "asc",
+      "sort_direction": "closest_to_10s",
       "perfect_scores_count": 0,
       "leaderboard": []
     },

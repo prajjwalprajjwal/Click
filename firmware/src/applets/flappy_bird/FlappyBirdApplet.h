@@ -90,6 +90,14 @@ public:
 
     void preloadState();
     uint16_t getHighScore() const { return highScore; }
+    void setHighScore(uint16_t score) {
+        if (score > highScore) {
+            highScore = score;
+            prefs.begin("flappy", false);
+            prefs.putUInt("high", highScore);
+            prefs.end();
+        }
+    }
 };
 
 #endif // FLAPPY_BIRD_APPLET_H

@@ -1552,16 +1552,6 @@ function initSyncStats() {
       port = await navigator.serial.requestPort();
       await port.open({ baudRate: 115200 });
 
-      // Hardware reset pulse: kicks ESP32 out of ROM bootloader (boot:0x3) into normal SPI firmware (boot:0x13)
-      try {
-        await port.setSignals({ dataTerminalReady: false, requestToSend: true });
-        await new Promise(r => setTimeout(r, 120));
-        await port.setSignals({ dataTerminalReady: false, requestToSend: false });
-        await new Promise(r => setTimeout(r, 200));
-      } catch (e) {
-        console.warn('Could not pulse hardware reset signals:', e);
-      }
-
       syncBtn.innerHTML = `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="animation:spin 1s linear infinite;">
           <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
@@ -1619,7 +1609,7 @@ function initSyncStats() {
         }
       }
 
-      // Retry query every 400ms for up to 6 seconds to handle ESP32 boot/settling
+      // Retry query every 350ms for up to 6 seconds
       const queryStart = Date.now();
       let attempt = 1;
 
@@ -1631,14 +1621,24 @@ function initSyncStats() {
             : `Click connected. Handshake attempt ${attempt}...`;
         }
 
+        // Only pulse RTS recovery if device fails to respond after 4 attempts (stranded in bootloader)
+        if (attempt === 4 && !statsData) {
+          try {
+            await port.setSignals({ dataTerminalReady: false, requestToSend: true });
+            await new Promise(r => setTimeout(r, 120));
+            await port.setSignals({ dataTerminalReady: false, requestToSend: false });
+            await new Promise(r => setTimeout(r, 300));
+          } catch (rstErr) {}
+        }
+
         try {
           await sendCommand("\r\nGET_STATS\r\n");
         } catch (err) {}
 
         const sliceStart = Date.now();
-        while (Date.now() - sliceStart < 400) {
+        while (Date.now() - sliceStart < 350) {
           if (statsData) break;
-          await new Promise(r => setTimeout(r, 40));
+          await new Promise(r => setTimeout(r, 35));
         }
         attempt++;
       }
@@ -1648,9 +1648,6 @@ function initSyncStats() {
       await readPromise;
       try { reader.releaseLock(); } catch (e) {}
       reader = null;
-
-      try { await port.close(); } catch (e) {}
-      port = null;
 
       if (!statsData) {
         throw new Error("No telemetry packet received. If this Click was flashed with older firmware, click 'Quick Flash' above to install firmware v0.1.0+ with telemetry support.");
@@ -1670,7 +1667,7 @@ function initSyncStats() {
       const deviceChipId = statsData.chip_id || statsData.uuid || '--';
       const deviceClicks = Number(statsData.clicks || 0);
       const deviceFlappy = Number(statsData.flappy !== undefined ? statsData.flappy : (statsData.flappy_high || 0));
-      const deviceJustTen = Number(statsData.just_ten || statsData.just_ten_best_ms || 0);
+      const deviceJustTen = Number(statsData.just_ten !== undefined ? statsData.just_ten : (statsData.just_ten_time || 0));
 
       // Display telemetry in HUD immediately!
       if (hud) {
@@ -1679,7 +1676,7 @@ function initSyncStats() {
         if (hudClicks) hudClicks.textContent = deviceClicks.toLocaleString();
         if (hudFlappy) hudFlappy.textContent = deviceFlappy.toLocaleString();
         if (hudJustTen) {
-          hudJustTen.textContent = deviceJustTen > 0 ? `+${(deviceJustTen / 1000).toFixed(4)}s` : 'No Record';
+          hudJustTen.textContent = deviceJustTen > 0 ? `${deviceJustTen.toFixed(4)}s` : 'No Record';
         }
         if (hudUuid) hudUuid.textContent = maskHardwareId(deviceChipId);
       }
@@ -1701,6 +1698,7 @@ function initSyncStats() {
             clicks: deviceClicks,
             flappy: deviceFlappy,
             just_ten: deviceJustTen,
+            just_ten_time: deviceJustTen,
             uptime_hrs: Number(statsData.uptime_hrs || 0)
           })
         });
@@ -1708,6 +1706,24 @@ function initSyncStats() {
         if (resp.ok) {
           const result = await resp.json();
           cloudSuccess = true;
+
+          // Two-way sync: If cloud has higher scores, sync them back to the device!
+          try {
+            const cloudClicks = Number(result.cloud_clicks || 0);
+            const cloudFlappy = Number(result.cloud_flappy || 0);
+            const cloudJustTen = Number(result.cloud_just_ten || 0);
+
+            if (cloudClicks > deviceClicks) {
+              await sendCommand(`SET_CLICKS ${cloudClicks}\r\n`);
+              if (hudClicks) hudClicks.textContent = cloudClicks.toLocaleString();
+            }
+            if (cloudFlappy > deviceFlappy || (cloudJustTen > 0 && (deviceJustTen === 0 || Math.abs(cloudJustTen - 10.0) < Math.abs(deviceJustTen - 10.0)))) {
+              await sendCommand(`SET_STATS CLICKS=${cloudClicks} FLAPPY=${cloudFlappy} JUST_TEN=${cloudJustTen}\r\n`);
+            }
+          } catch (syncBackErr) {
+            console.warn('Sync back to device notice:', syncBackErr);
+          }
+
           if (statusMsg) {
             statusMsg.style.color = '#34d399';
             statusMsg.textContent = `✓ Synced! +${Number(result.credited_delta || 0).toLocaleString()} clicks added to Global Boulder!`;
@@ -1736,6 +1752,11 @@ function initSyncStats() {
         if (hudNote) {
           hudNote.textContent = 'Telemetry successfully queried from local NVS memory partition via USB.';
         }
+      }
+
+      if (port) {
+        try { await port.close(); } catch (e) {}
+        port = null;
       }
 
     } catch (err) {

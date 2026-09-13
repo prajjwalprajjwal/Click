@@ -148,6 +148,9 @@ bool PersistenceManager::shouldPersist(uint32_t now) const {
     if ((now - lastClickTime) >= CLICKER_PERSIST_IDLE_DELAY_MS) {
         return true;
     }
+    if (CLICKER_PERSIST_EVERY_N_CLICKS > 0 && clicksSincePersist >= CLICKER_PERSIST_EVERY_N_CLICKS) {
+        return true;
+    }
     return false;
 }
 
@@ -156,8 +159,5 @@ void PersistenceManager::clearPeriodicCounter() {
 }
 
 bool PersistenceManager::flush(const ClickCounter& counter, const uint32_t milestoneFlags[MILESTONE_FLAG_WORDS]) {
-    if (!dirty) {
-        return true;
-    }
     return save(counter, milestoneFlags);
 }

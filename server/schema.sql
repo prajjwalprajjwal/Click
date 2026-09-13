@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS devices (
     last_synced_clicks INTEGER NOT NULL DEFAULT 0,
     last_synced_at DATETIME DEFAULT CURRENT_TIMESTAMP,
     flappy_high_score INTEGER NOT NULL DEFAULT 0,
+    just_ten_time REAL NOT NULL DEFAULT 0,
     just_ten_best_ms INTEGER NOT NULL DEFAULT 0,
     uptime_hrs INTEGER NOT NULL DEFAULT 0,
     verified INTEGER NOT NULL DEFAULT 1,

@@ -46,6 +46,16 @@ void CounterApplet::persistNow() {
   persistence.flush(counter, milestoneFlags);
 }
 
+void CounterApplet::setLifetimeClicks(uint64_t val) {
+  if (!storageReady) {
+    storageReady = persistence.begin();
+  }
+  counter.setLifetimeClicks(val);
+  persistence.markDirty();
+  persistNow();
+  frameDirty = true;
+}
+
 void CounterApplet::persistIfNeeded(bool force) {
   if (!storageReady) {
     return;

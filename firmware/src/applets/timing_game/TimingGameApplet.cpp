@@ -7,7 +7,7 @@
 
 void TimingGameApplet::preloadState() {
     prefs.begin("click_stats", true);
-    bestDeviationMs = prefs.getUInt("just_ten_best", 0);
+    bestTimeUs = prefs.getUInt("just_ten_time", 0);
     prefs.end();
 }
 
@@ -104,14 +104,15 @@ void TimingGameApplet::update() {
         state = RESULT;
         resultDisplayTime = now;
 
-        int64_t diffUs = static_cast<int64_t>(holdDurationUs) - 10000000LL;
-        uint32_t devMs = static_cast<uint32_t>(std::abs(diffUs) / 1000);
-        if (devMs == 0) devMs = 1; // 1ms for perfect hit to ensure it is > 0 in SQL
-        if (bestDeviationMs == 0 || devMs < bestDeviationMs) {
-            bestDeviationMs = devMs;
-            prefs.begin("click_stats", false);
-            prefs.putUInt("just_ten_best", bestDeviationMs);
-            prefs.end();
+        if (holdDurationUs > 0) {
+            int64_t currentDiff = std::abs(static_cast<int64_t>(holdDurationUs) - 10000000LL);
+            int64_t bestDiff = (bestTimeUs == 0) ? -1 : std::abs(static_cast<int64_t>(bestTimeUs) - 10000000LL);
+            if (bestTimeUs == 0 || currentDiff < bestDiff) {
+                bestTimeUs = static_cast<uint32_t>(holdDurationUs);
+                prefs.begin("click_stats", false);
+                prefs.putUInt("just_ten_time", bestTimeUs);
+                prefs.end();
+            }
         }
     }
 

@@ -48,6 +48,11 @@ export default {
           });
         }
 
+        // Ensure just_ten_time column exists (safe idempotent migration)
+        try {
+          await db.prepare("ALTER TABLE devices ADD COLUMN just_ten_time REAL DEFAULT 0").run();
+        } catch (e) {}
+
         // Global stats
         const globalRow = await db.prepare(
           "SELECT total_boulder_clicks, total_devices, last_updated FROM global_stats WHERE id = 1"
@@ -58,10 +63,17 @@ export default {
           "SELECT chip_id, device_name, total_clicks, last_synced_at FROM devices WHERE total_clicks > 0 ORDER BY total_clicks DESC LIMIT 10"
         ).all();
 
-        // Top 10 Just Ten precision records (lowest deviation)
-        const topJustTen = await db.prepare(
-          "SELECT chip_id, device_name, just_ten_best_ms, last_synced_at FROM devices WHERE just_ten_best_ms > 0 ORDER BY just_ten_best_ms ASC LIMIT 10"
-        ).all();
+        // Top 10 Just Ten precision records (closest to 10.0000s)
+        let topJustTen;
+        try {
+          topJustTen = await db.prepare(
+            "SELECT chip_id, device_name, just_ten_time, just_ten_best_ms, last_synced_at FROM devices WHERE just_ten_time > 0 OR just_ten_best_ms > 0 ORDER BY ABS(COALESCE(NULLIF(just_ten_time, 0), 10.0 + just_ten_best_ms / 1000.0) - 10.0) ASC LIMIT 10"
+          ).all();
+        } catch (e) {
+          topJustTen = await db.prepare(
+            "SELECT chip_id, device_name, just_ten_best_ms, last_synced_at FROM devices WHERE just_ten_best_ms > 0 ORDER BY just_ten_best_ms ASC LIMIT 10"
+          ).all();
+        }
 
         // Top 10 Flappy Bird flyers
         const topFlappy = await db.prepare(
@@ -91,16 +103,20 @@ export default {
         }));
 
         const justTenList = (topJustTen && topJustTen.results || []).map((row, idx) => {
-          const devSec = (row.just_ten_best_ms / 1000).toFixed(4);
+          const actualTime = Number(row.just_ten_time || (10 + (row.just_ten_best_ms || 0) / 1000));
+          const timeStr = `${actualTime.toFixed(4)}s`;
+          const diffSec = actualTime - 10.0;
+          const devStr = (diffSec >= 0 ? "+" : "") + diffSec.toFixed(4) + "s";
           return {
             rank: idx + 1,
             device_serial: maskSerial(row.chip_id),
             chip_id: maskSerial(row.chip_id),
             name: row.device_name,
-            score: row.just_ten_best_ms,
-            display_score: `${(10 + row.just_ten_best_ms / 1000).toFixed(4)}s`,
-            deviation_display: `+${devSec}s`,
-            tier: row.just_ten_best_ms <= 2 ? "Zen Master" : "Focused",
+            score: actualTime,
+            display_score: timeStr,
+            time_display: timeStr,
+            deviation_display: devStr,
+            tier: Math.abs(diffSec) <= 0.005 ? "Zen Master" : Math.abs(diffSec) <= 0.05 ? "Clockwork" : "Focused",
             synced_at: row.last_synced_at
           };
         });
@@ -116,14 +132,18 @@ export default {
           synced_at: row.last_synced_at
         }));
 
-        const responseData = {
+        const payload = {
           meta: {
             version: "1.1.0",
-            updated_at: new Date().toISOString(),
             total_registered_devices: totalDevices,
             global_boulder_clicks: totalBoulderClicks,
+            total_collective_clicks: totalBoulderClicks,
             boulder_milestone_target: targetClicks,
-            boulder_progress_pct: Number(((totalBoulderClicks / targetClicks) * 100).toFixed(2))
+            boulder_progress_pct: Number(((totalBoulderClicks / targetClicks) * 100).toFixed(2)),
+            live_api_endpoint: `${url.origin}/api/leaderboard`,
+            sync_endpoint: `${url.origin}/api/sync`,
+            fallback_endpoint: "https://flashclick.uprajjwal.com.np/leaderboard.json",
+            last_updated: globalRow ? globalRow.last_updated : new Date().toISOString()
           },
           applets: {
             sisyphus: {
@@ -146,10 +166,10 @@ export default {
               headline: "Hold the button for exactly 10 seconds.",
               description: "Looks like a reaction game. The expanding circle quietly syncs your breathing, grounding you mid-stress without anyone noticing.",
               stat_type: "precision_timing",
-              primary_metric: "Hold Timing Deviation",
+              primary_metric: "Best Time",
               target_seconds: 10.0,
               unit: "seconds",
-              sort_direction: "asc",
+              sort_direction: "closest_to_10s",
               leaderboard: justTenList
             },
             flappy_bird: {
@@ -174,7 +194,7 @@ export default {
           timestamp: new Date().toISOString()
         };
 
-        return new Response(JSON.stringify(responseData), {
+        return new Response(JSON.stringify(payload), {
           headers: { ...headers, "Content-Type": "application/json" },
         });
       } catch (err) {
@@ -196,6 +216,11 @@ export default {
           });
         }
 
+        // Ensure just_ten_time column exists (safe idempotent migration)
+        try {
+          await db.prepare("ALTER TABLE devices ADD COLUMN just_ten_time REAL DEFAULT 0").run();
+        } catch (e) {}
+
         const body = await request.json();
         const rawChipId = body.chip_id || "";
         const chipId = String(rawChipId).replace(/[^A-Za-z0-9]/g, "").toUpperCase();
@@ -209,12 +234,13 @@ export default {
         const deviceName = sanitizeText(body.name);
         const clicks = Math.max(0, parseInt(body.clicks, 10) || 0);
         const flappyScore = Math.max(0, parseInt(body.flappy, 10) || 0);
-        const justTenScore = Math.max(0, parseInt(body.just_ten, 10) || parseInt(body.just_ten_best_ms, 10) || 0);
+        const rawJustTen = body.just_ten_time !== undefined ? body.just_ten_time : body.just_ten;
+        const justTenTime = Math.max(0, parseFloat(rawJustTen) || 0);
         const uptimeHrs = Math.max(0, parseInt(body.uptime_hrs, 10) || 0);
 
         // Check if device already exists
         const existing = await db.prepare(
-          "SELECT chip_id, device_name, total_clicks, last_synced_clicks, last_synced_at, flappy_high_score, just_ten_best_ms FROM devices WHERE chip_id = ?"
+          "SELECT chip_id, device_name, total_clicks, last_synced_clicks, last_synced_at, flappy_high_score, just_ten_time, just_ten_best_ms FROM devices WHERE chip_id = ?"
         ).bind(chipId).first();
 
         let creditedDelta = 0;
@@ -222,11 +248,12 @@ export default {
         if (!existing) {
           // New device: Initial registration cap (max 50k clicks to safeguard global sum)
           creditedDelta = Math.min(clicks, 50000);
+          const initialJustTenBestMs = justTenTime > 0 ? Math.round(Math.abs(justTenTime - 10.0) * 1000) : 0;
 
           await db.batch([
             db.prepare(
-              "INSERT INTO devices (chip_id, device_name, total_clicks, last_synced_clicks, last_synced_at, flappy_high_score, just_ten_best_ms, uptime_hrs) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?)"
-            ).bind(chipId, deviceName, clicks, clicks, flappyScore, justTenScore, uptimeHrs),
+              "INSERT INTO devices (chip_id, device_name, total_clicks, last_synced_clicks, last_synced_at, flappy_high_score, just_ten_time, just_ten_best_ms, uptime_hrs) VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP, ?, ?, ?, ?)"
+            ).bind(chipId, deviceName, clicks, clicks, flappyScore, justTenTime, initialJustTenBestMs, uptimeHrs),
             db.prepare(
               "UPDATE global_stats SET total_boulder_clicks = total_boulder_clicks + ?, total_devices = total_devices + 1, last_updated = CURRENT_TIMESTAMP WHERE id = 1"
             ).bind(creditedDelta),
@@ -253,16 +280,28 @@ export default {
           }
 
           const newFlappy = Math.max(existing.flappy_high_score || 0, flappyScore);
-          const existingJustTen = existing.just_ten_best_ms || 0;
-          let newJustTen = existingJustTen;
-          if (justTenScore > 0) {
-            newJustTen = (existingJustTen === 0) ? justTenScore : Math.min(existingJustTen, justTenScore);
+          
+          // Just Ten: Record is only broken if new time is closer to 10.0000s
+          const existingJustTenTime = Number(existing.just_ten_time || (existing.just_ten_best_ms ? 10 + existing.just_ten_best_ms / 1000 : 0));
+          let newJustTenTime = existingJustTenTime;
+          if (justTenTime > 0) {
+            if (existingJustTenTime === 0) {
+              newJustTenTime = justTenTime;
+            } else {
+              const existingDiff = Math.abs(existingJustTenTime - 10.0);
+              const newDiff = Math.abs(justTenTime - 10.0);
+              if (newDiff < existingDiff) {
+                newJustTenTime = justTenTime;
+              }
+            }
           }
+          const newJustTenMs = newJustTenTime > 0 ? Math.round(Math.abs(newJustTenTime - 10.0) * 1000) : 0;
+          const newTotalClicks = Math.max(existing.total_clicks || 0, clicks);
 
           await db.batch([
             db.prepare(
-              "UPDATE devices SET device_name = ?, total_clicks = ?, last_synced_clicks = ?, last_synced_at = CURRENT_TIMESTAMP, flappy_high_score = ?, just_ten_best_ms = ?, uptime_hrs = MAX(uptime_hrs, ?) WHERE chip_id = ?"
-            ).bind(deviceName, clicks, clicks, newFlappy, newJustTen, uptimeHrs, chipId),
+              "UPDATE devices SET device_name = ?, total_clicks = ?, last_synced_clicks = ?, last_synced_at = CURRENT_TIMESTAMP, flappy_high_score = ?, just_ten_time = ?, just_ten_best_ms = ?, uptime_hrs = MAX(uptime_hrs, ?) WHERE chip_id = ?"
+            ).bind(deviceName, newTotalClicks, newTotalClicks, newFlappy, newJustTenTime, newJustTenMs, uptimeHrs, chipId),
             db.prepare(
               "UPDATE global_stats SET total_boulder_clicks = total_boulder_clicks + ?, last_updated = CURRENT_TIMESTAMP WHERE id = 1"
             ).bind(creditedDelta),
@@ -272,10 +311,14 @@ export default {
           ]);
         }
 
-        // Return updated boulder stats
+        // Return updated boulder stats and authoritative scores
         const updatedGlobal = await db.prepare(
           "SELECT total_boulder_clicks, total_devices FROM global_stats WHERE id = 1"
         ).first();
+
+        const latestDevice = await db.prepare(
+          "SELECT total_clicks, flappy_high_score, just_ten_time FROM devices WHERE chip_id = ?"
+        ).bind(chipId).first();
 
         return new Response(
           JSON.stringify({
@@ -284,6 +327,9 @@ export default {
             device_name: deviceName,
             credited_delta: creditedDelta,
             total_boulder_clicks: updatedGlobal ? updatedGlobal.total_boulder_clicks : 0,
+            cloud_clicks: latestDevice ? latestDevice.total_clicks : clicks,
+            cloud_flappy: latestDevice ? latestDevice.flappy_high_score : flappyScore,
+            cloud_just_ten: latestDevice ? latestDevice.just_ten_time : justTenTime,
             message: `Successfully synced! +${creditedDelta.toLocaleString()} clicks added to the Community Boulder.`,
           }),
           { headers: { ...headers, "Content-Type": "application/json" } }
