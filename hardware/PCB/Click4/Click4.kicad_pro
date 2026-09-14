@@ -162,7 +162,7 @@
         "min_track_width": 0.15,
         "min_via_annular_width": 0.075,
         "min_via_diameter": 0.45,
-        "solder_mask_to_copper_clearance": 0.0,
+        "solder_mask_to_copper_clearance": 0.005,
         "use_height_for_length_calcs": true
       },
       "teardrop_options": [
@@ -612,13 +612,13 @@
           "group_by": true,
           "label": "Exclude from Board",
           "name": "${EXCLUDE_FROM_BOARD}",
-          "show": true
+          "show": false
         },
         {
           "group_by": true,
           "label": "Exclude from Simulation",
           "name": "${EXCLUDE_FROM_SIM}",
-          "show": true
+          "show": false
         },
         {
           "group_by": true,
@@ -636,7 +636,7 @@
           "group_by": false,
           "label": "Datasheet",
           "name": "Datasheet",
-          "show": true
+          "show": false
         },
         {
           "group_by": false,
@@ -648,7 +648,7 @@
           "group_by": false,
           "label": "MPN",
           "name": "MPN",
-          "show": false
+          "show": true
         },
         {
           "group_by": false,
@@ -672,7 +672,7 @@
           "group_by": false,
           "label": "LCSC Part",
           "name": "LCSC Part",
-          "show": false
+          "show": true
         }
       ],
       "filter_string": "",
@@ -723,7 +723,7 @@
         "uuid": "1f4d5d38-0da1-4bc2-98a1-b27a96eee6fa"
       }
     ],
-    "used_designators": "TP1-22,#FLG1-5,BT1,R1-12,R23,R29,R49-55,H1,S1-2,U1-5,U14,C2-3,C5-32,C34-44,SW1,RESET1,J1-5,USBDEV1,Q1,D1-4,#PWR1-46,#PWR48,#PWR65,#PWR70,#PWR74,#PWR81,#PWR96-104,Y1-2,L1-3",
+    "used_designators": "LED1-2,TP1-22,#FLG1-5,BT1,R1-12,R23,R29,R49-55,H1,S1-2,U1-5,U14,C2-3,C5-32,C34-46,SW1,RESET1,J1-5,USBDEV1,Y1-2,#PWR1-51,#PWR65,#PWR70,#PWR74,#PWR81,#PWR96-104,D1-4,Q1,L1-3",
     "variants": []
   },
   "sheets": [
