@@ -267,3 +267,14 @@ The firmware exposes a lightweight ASCII command parser on UART0 (115200 baud) f
 * **Web Flasher & Device Hub**: [flashclick.uprajjwal.com.np](https://flashclick.uprajjwal.com.np)
 * **Backend Source & Deployment Guide**: [`server/README.md`](server/README.md)
 
+---
+
+## ⚖️ License
+
+This project (Firmware, PCB schematics & layouts, 3D mechanical designs, and assets) is licensed under the **Creative Commons Attribution-NonCommercial-ShareAlike 4.0 International License ([CC BY-NC-SA 4.0](LICENSE))**.
+
+* **Personal & Educational Use**: ✅ You are welcome to view, modify, download, and fabricate units for your personal, non-commercial use.
+* **Commercial Manufacturing & Sale**: ❌ Manufacturing, assembling, packaging, or selling physical units, kits, PCBs, or parts for commercial gain is strictly prohibited without prior written permission from the author.
+* See [LICENSE](LICENSE) for complete terms.
+
+
