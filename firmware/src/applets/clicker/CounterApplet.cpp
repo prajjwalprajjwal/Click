@@ -31,6 +31,7 @@ void CounterApplet::loadState() {
   pushFrame = 0;
   pendingPushes = 0;
   climbProgress = 0; // Fresh baseline on applet startup/cycle
+  lastClickTime = millis();
   frameDirty = true;
   lastFrameTime = millis();
 
@@ -77,6 +78,7 @@ void CounterApplet::handleClick() {
   }
 
   uint32_t now = millis();
+  lastClickTime = now;
   persistence.onClickRecorded(now);
 
 #if CLICKER_DEBUG
@@ -117,7 +119,7 @@ void CounterApplet::handleClick() {
     pendingPushes++;
   }
 
-  // Start push heave immediately
+  // Start push heave immediately (interrupts rollback or starts fresh heave)
   if (animMode != SisyphusAnimMode::PUSHING) {
     animMode = SisyphusAnimMode::PUSHING;
     pushFrame = 0;
@@ -150,9 +152,53 @@ void CounterApplet::updateAnimation(uint32_t now) {
       }
       frameDirty = true;
     }
+  } else if (animMode == SisyphusAnimMode::ROLLING_BACK) {
+    // Reverse downhill motion: paced backwards stride and opposite boulder roll
+    if ((now - lastFrameTime) >= ROLLBACK_FRAME_INTERVAL_MS) {
+      lastFrameTime = now;
+
+      // Paced downhill step with gravity scaling at high altitude
+      uint8_t step = 1;
+      if (climbProgress > 200) {
+        step = 3;
+      } else if (climbProgress > 100) {
+        step = 2;
+      }
+
+      if (climbProgress <= step) {
+        climbProgress = 0;
+        animMode = SisyphusAnimMode::IDLE_WALKING;
+        pushFrame = 0;
+      } else {
+        climbProgress -= step;
+        // Cycle legs in reverse stride (3 -> 2 -> 1 -> 0 -> 3...)
+        pushFrame = (pushFrame + 3) % 4;
+      }
+
+      // Rotate boulder in opposite direction (counter-clockwise / downhill)
+      boulderRotPhase = static_cast<uint8_t>(
+          (boulderRotPhase + BOULDER_FRAMES - (step % BOULDER_FRAMES)) %
+          BOULDER_FRAMES);
+
+      // Distant background parallax moves in reverse
+      float worldStep = step * 0.5f;
+      if (worldProgress >= worldStep) {
+        worldProgress -= worldStep;
+      } else {
+        worldProgress = 0.0f;
+      }
+
+      frameDirty = true;
+    }
   } else {
-    // Idle state: position is fully preserved, no snapping backward!
-    if ((now - lastFrameTime) >= WALK_FRAME_INTERVAL_MS) {
+    // IDLE_WALKING: If stopped clicking for 2 seconds while uphill, roll back downhill
+    if (climbProgress > 0 &&
+        (now - lastClickTime) >= INACTIVITY_ROLLBACK_DELAY_MS) {
+      animMode = SisyphusAnimMode::ROLLING_BACK;
+      lastFrameTime = now;
+      pushFrame = 3;
+      frameDirty = true;
+    } else if ((now - lastFrameTime) >= WALK_FRAME_INTERVAL_MS) {
       lastFrameTime = now;
     }
   }
@@ -202,6 +248,7 @@ void CounterApplet::resetAll() {
   pendingPushes = 0;
   animMode = SisyphusAnimMode::IDLE_WALKING;
   pushFrame = 0;
+  lastClickTime = millis();
   memset(milestoneFlags, 0, sizeof(milestoneFlags));
 
   persistence.setHomeUnlockFlags(0);
@@ -224,6 +271,7 @@ void CounterApplet::init() {
   pushFrame = 0;
   pendingPushes = 0;
   climbProgress = 0; // Reset position when cycled through app or rebooted
+  lastClickTime = millis();
   frameDirty = true;
   lastFrameTime = millis();
 

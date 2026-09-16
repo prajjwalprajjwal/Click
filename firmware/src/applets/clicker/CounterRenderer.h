@@ -30,11 +30,13 @@ public:
         x = 127;
       return pgm_read_byte(&hill_corner_profile[x]);
     } else {
-      if (climbProgress > 20) {
+      if (climbProgress > 30) {
         return 100; // Flat plane has cleanly moved below the screen
       }
-      int16_t plain_y = 62 + static_cast<int16_t>(climbProgress) * 3;
-      return plain_y;
+      if (climbProgress > 18) {
+        return 62 + static_cast<int16_t>(climbProgress - 18) * 3;
+      }
+      return 62; // Solid flat plain ground while character approaches slope
     }
   }
 

@@ -132,8 +132,12 @@ static inline uint8_t soilHash(uint32_t wx, uint32_t wy) {
 void CounterRenderer::drawHillTerrain(int32_t hillOffset,
                                       int32_t climbProgress) const {
   // 1. Starting flat ground plane on the left (x < 38):
-  // Moves downwards as soon as movement starts (plain_y = 62 + climbProgress * 3)
-  int16_t plain_y = 62 + static_cast<int16_t>(climbProgress) * 3;
+  // Stays solid at y=62 while character walks straight.
+  // Moves downwards only after character climbs onto the slope (climbProgress > 18).
+  int16_t plain_y = 62;
+  if (climbProgress > 18) {
+    plain_y = 62 + static_cast<int16_t>(climbProgress - 18) * 3;
+  }
   if (plain_y < 64) {
     for (int16_t px = 0; px < 38; px++) {
       display.drawPixel(px, plain_y, SSD1306_WHITE);
