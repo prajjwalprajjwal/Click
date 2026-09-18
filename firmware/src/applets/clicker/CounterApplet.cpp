@@ -108,6 +108,16 @@ void CounterApplet::handleClick() {
     homeApplet.applyUnlockState(unlocks);
   }
 
+  // While rolling backward, register the first click to hold the rolling position at that step for 1 second
+  if (animMode == SisyphusAnimMode::ROLLING_BACK) {
+    animMode = SisyphusAnimMode::IDLE_WALKING;
+    pushFrame = 0;
+    pendingPushes = 0;
+    lastFrameTime = now;
+    frameDirty = true;
+    return;
+  }
+
   // 2. Advance boulder rotation and persistent uphill position per click
   boulderRotPhase =
       static_cast<uint8_t>((boulderRotPhase + 1) % BOULDER_FRAMES);
@@ -119,7 +129,7 @@ void CounterApplet::handleClick() {
     pendingPushes++;
   }
 
-  // Start push heave immediately (interrupts rollback or starts fresh heave)
+  // Start push heave immediately
   if (animMode != SisyphusAnimMode::PUSHING) {
     animMode = SisyphusAnimMode::PUSHING;
     pushFrame = 0;

@@ -37,12 +37,12 @@ private:
     uint32_t lastCloudDriftTime = 0;
     bool frameDirty = true;
 
-    // Paced Frame Timing (25 FPS push / 8 FPS walk / 30 FPS display refresh cap / 10 FPS idle cloud drift / 2s rollback)
+    // Paced Frame Timing (25 FPS push / 8 FPS walk / 30 FPS display refresh cap / 10 FPS idle cloud drift / 1s rollback)
     static const uint32_t PUSH_FRAME_INTERVAL_MS = 40;  // 25 FPS
     static const uint32_t WALK_FRAME_INTERVAL_MS = 125; // 8 FPS
     static const uint32_t MIN_DISPLAY_INTERVAL_MS = 33; // 30 FPS ceiling to protect I2C bus
     static const uint32_t CLOUD_DRIFT_INTERVAL_MS = 100; // 10 FPS automatic cloud drift
-    static const uint32_t INACTIVITY_ROLLBACK_DELAY_MS = 2000; // 2 seconds idle before rolling downhill
+    static const uint32_t INACTIVITY_ROLLBACK_DELAY_MS = 1000; // 1 second idle before rolling downhill
     static const uint32_t ROLLBACK_FRAME_INTERVAL_MS = 40;     // 25 FPS rollback
 
     void loadState();
