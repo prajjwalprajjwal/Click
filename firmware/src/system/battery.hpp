@@ -47,9 +47,40 @@ private:
     }
 
 public:
+    static int calculatePercentageFromVoltage(float v, bool charging) {
+        // While charging in constant-current phase, there is a small IR drop (~30mV).
+        // In constant-voltage phase (approaching 4.20V), current tapers down to ~10mA,
+        // so IR drop drops to 0. We taper any IR compensation to 0 at 4.15V.
+        float effectiveV = v;
+        if (charging) {
+            if (v < 4.00f) {
+                effectiveV = v - 0.03f;
+            } else if (v < 4.15f) {
+                effectiveV = v - 0.03f * (1.0f - (v - 4.00f) / 0.15f);
+            }
+        }
+
+        // Calibrated non-linear Li-Ion SoC curve:
+        // Fully charged cell rests at 4.15V - 4.20V
+        if (effectiveV >= 4.15f) return 100;
+        if (effectiveV >= 4.08f) return 90 + static_cast<int>((effectiveV - 4.08f) / (4.15f - 4.08f) * 10.0f);
+        if (effectiveV >= 3.98f) return 76 + static_cast<int>((effectiveV - 3.98f) / (4.08f - 3.98f) * 14.0f);
+        if (effectiveV >= 3.88f) return 58 + static_cast<int>((effectiveV - 3.88f) / (3.98f - 3.88f) * 18.0f);
+        if (effectiveV >= 3.80f) return 42 + static_cast<int>((effectiveV - 3.80f) / (3.88f - 3.80f) * 16.0f);
+        if (effectiveV >= 3.73f) return 26 + static_cast<int>((effectiveV - 3.73f) / (3.80f - 3.73f) * 16.0f);
+        if (effectiveV >= 3.65f) return 14 + static_cast<int>((effectiveV - 3.65f) / (3.73f - 3.65f) * 12.0f);
+        if (effectiveV >= 3.52f) return 5 + static_cast<int>((effectiveV - 3.52f) / (3.65f - 3.52f) * 9.0f);
+        if (effectiveV >= 3.35f) return static_cast<int>((effectiveV - 3.35f) / (3.52f - 3.35f) * 5.0f);
+        return 0;
+    }
+
+public:
     static void init() {
 #if defined(CHARGER_STAT_PIN) && (CHARGER_STAT_PIN >= 0)
         pinMode(CHARGER_STAT_PIN, INPUT_PULLUP);
+#endif
+#if defined(BATTERY_ADC_PIN) && (BATTERY_ADC_PIN >= 0)
+        pinMode(BATTERY_ADC_PIN, INPUT);
 #endif
         analogReadResolution(12);
 
@@ -108,25 +139,15 @@ public:
         }
         wasCharging = charging;
 
-        // When actively charging, charger current creates an IR drop (~0.12V-0.18V)
-        // across cell internal resistance & protection FETs, elevating terminal voltage.
-        float effectiveV = charging ? (v - 0.15f) : v;
-
-        // Calibrated Non-Linear LiPo Discharge Open-Circuit Voltage Curve
-        int rawPct = 0;
-        if (effectiveV >= 4.18f) rawPct = 100;
-        else if (effectiveV >= 4.08f) rawPct = 90 + static_cast<int>((effectiveV - 4.08f) / (4.18f - 4.08f) * 10.0f);
-        else if (effectiveV >= 3.98f) rawPct = 78 + static_cast<int>((effectiveV - 3.98f) / (4.08f - 3.98f) * 12.0f);
-        else if (effectiveV >= 3.88f) rawPct = 62 + static_cast<int>((effectiveV - 3.88f) / (3.98f - 3.88f) * 16.0f);
-        else if (effectiveV >= 3.80f) rawPct = 48 + static_cast<int>((effectiveV - 3.80f) / (3.88f - 3.80f) * 14.0f);
-        else if (effectiveV >= 3.73f) rawPct = 32 + static_cast<int>((effectiveV - 3.73f) / (3.80f - 3.73f) * 16.0f);
-        else if (effectiveV >= 3.65f) rawPct = 18 + static_cast<int>((effectiveV - 3.65f) / (3.73f - 3.65f) * 14.0f);
-        else if (effectiveV >= 3.52f) rawPct = 6 + static_cast<int>((effectiveV - 3.52f) / (3.65f - 3.52f) * 12.0f);
-        else if (effectiveV >= 3.35f) rawPct = static_cast<int>((effectiveV - 3.35f) / (3.52f - 3.35f) * 6.0f);
-        else rawPct = 0;
-
+        int rawPct = calculatePercentageFromVoltage(v, charging);
         if (rawPct > 100) rawPct = 100;
         if (rawPct < 0) rawPct = 0;
+
+        // If charging just completed (STAT pin went HIGH, but battery is >= 4.14V):
+        // Treat as fully charged 100%!
+        if (!charging && v >= 4.14f) {
+            rawPct = 100;
+        }
 
         // First boot initialization: accept initial reading immediately
         if (displayedPercentage < 0) {
@@ -135,49 +156,47 @@ public:
             return displayedPercentage;
         }
 
-        // Post-Unplug Surface Charge Relaxation Protection:
-        // When unplugged, a LiPo's terminal voltage relaxes 50-150mV over the first 45 seconds.
-        // Holding the percentage prevents the alarming "ticking down 1% every second" optical illusion.
-        bool inUnplugRelaxation = (!charging && unplugTime > 0 && (now - unplugTime < 45000));
+        if (charging) {
+            // CHARGING MODE:
+            // 1. Percentage must NEVER decrease while connected to charger!
+            // 2. Step upward smoothly (at most 1% every 5 seconds) to avoid jumpy displays.
+            if (rawPct > displayedPercentage) {
+                if (now - lastPctUpdateTime >= 5000) {
+                    displayedPercentage++;
+                    lastPctUpdateTime = now;
+                }
+            }
+            // If rawPct <= displayedPercentage, strictly hold current displayedPercentage!
+        } else {
+            // BATTERY DISCHARGE MODE:
+            // Post-unplug surface charge relaxation:
+            // LiPo terminal voltage relaxes 30-80mV during the first 60 seconds after unplugging.
+            // Hold the percentage steady to prevent optical drops.
+            bool inUnplugRelaxation = (unplugTime > 0 && (now - unplugTime < 60000));
 
-        // Discharge Slew-Rate Limiter:
-        // A 150-300mAh battery drawing ~15-25mA discharges at ~10% per hour (1% every 6 minutes).
-        // Under heavy gaming (50mA), it discharges 1% every ~2.5 minutes.
-        // We strictly limit the rate of displayed percentage drop to at most 1% every 25 seconds
-        // (unless voltage is critically low < 3.45V, where immediate drop protects against sudden shutdown).
-        if (!charging) {
             if (inUnplugRelaxation) {
-                // Do not decrease during immediate post-unplug relaxation period
-            } else if (effectiveV < 3.45f) {
-                // Near critical cutoff: track raw percentage immediately
+                // Do not allow decrease during post-unplug relaxation
+            } else if (v < 3.45f) {
+                // Near dead battery cutoff: update immediately to warn user
                 displayedPercentage = rawPct;
                 lastPctUpdateTime = now;
             } else if (rawPct < displayedPercentage) {
-                // Enforce max drop rate: 1% per 25 seconds
+                // Smooth discharge rate: at most 1% drop every 25 seconds
                 if (now - lastPctUpdateTime >= 25000) {
                     displayedPercentage--;
                     lastPctUpdateTime = now;
                 }
-            } else if (rawPct > displayedPercentage && (rawPct - displayedPercentage >= 3)) {
-                // Only allow upward drift on battery if raw percentage is consistently higher (>= 3% hysteresis)
-                if (now - lastPctUpdateTime >= 30000) {
+            } else if (rawPct > displayedPercentage && (rawPct - displayedPercentage >= 4)) {
+                // Only allow upward recovery on battery after deep relaxation with >= 4% hysteresis
+                if (now - lastPctUpdateTime >= 40000) {
                     displayedPercentage++;
                     lastPctUpdateTime = now;
                 }
-            }
-        } else {
-            // Charging mode: smoothly step up (at most 1% every 8 seconds)
-            if (rawPct > displayedPercentage) {
-                if (now - lastPctUpdateTime >= 8000) {
-                    displayedPercentage++;
-                    lastPctUpdateTime = now;
-                }
-            } else if (rawPct < displayedPercentage && (displayedPercentage - rawPct >= 5)) {
-                // Charger load transient compensation
-                displayedPercentage--;
-                lastPctUpdateTime = now;
             }
         }
+
+        if (displayedPercentage > 100) displayedPercentage = 100;
+        if (displayedPercentage < 0) displayedPercentage = 0;
 
         return displayedPercentage;
     }

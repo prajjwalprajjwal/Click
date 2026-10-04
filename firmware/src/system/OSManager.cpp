@@ -134,7 +134,7 @@ void OSManager::enterLightSleep() {
 }
 
 void OSManager::wakeFromLightSleep() {
-    if (sleepState != LIGHT_SLEEP) return;
+    if (sleepState != LIGHT_SLEEP && sleepState != DEEP_SLEEP) return;
     sleepState = AWAKE;
     displayOn = true;
     isDimmed = false;

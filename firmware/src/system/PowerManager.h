@@ -27,8 +27,11 @@
 #include <hardware/clocks.h>
 #include <hardware/pll.h>
 #include <hardware/xosc.h>
+#include <hardware/structs/rosc.h>
 #include <hardware/gpio.h>
 #include <hardware/sync.h>
+#include <hardware/adc.h>
+#include <hardware/structs/scb.h>
 #include <pico/runtime_init.h>
 #endif
 
@@ -181,16 +184,42 @@ public:
         display.ssd1306_command(SSD1306_DISPLAYOFF);
         delay(5);
         CLICK_I2C.end();
+
+        // 1. High-Z with weak pullup (matching external hardware pullups, 0µA current)
         pinMode(I2C_SDA, INPUT_PULLUP);
         pinMode(I2C_SCL, INPUT_PULLUP);
         pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+#if defined(CHARGER_STAT_PIN) && (CHARGER_STAT_PIN >= 0)
+        pinMode(CHARGER_STAT_PIN, INPUT_PULLUP);
+#endif
+
+        // 2. Clear and solidly clamp WS2812 DIN to GND (0µA current)
 #if defined(WS2812_PIN) && (WS2812_PIN >= 0)
         WS2812Driver::clearAndHaltForSleep();
 #endif
+
+        // 3. Clamp Buzzer NPN base to 0V ground (cutoff, 0µA current)
 #if defined(BUZZER_PIN) && (BUZZER_PIN >= 0)
         pinMode(BUZZER_PIN, OUTPUT);
         digitalWrite(BUZZER_PIN, LOW);
 #endif
+
+        // 4. Power down ADC and disable digital input buffer on battery sense pin
+#if defined(BATTERY_ADC_PIN) && (BATTERY_ADC_PIN >= 0)
+        adc_run(false);
+        gpio_set_input_enabled(BATTERY_ADC_PIN, false);
+        gpio_disable_pulls(BATTERY_ADC_PIN);
+#endif
+
+        // 5. Disable digital input buffers on all unused GPIOs to eliminate floating CMOS shoot-through!
+        for (uint pin = 0; pin < NUM_BANK0_GPIOS; pin++) {
+            if (pin != MODE_BUTTON_PIN && pin != I2C_SDA && pin != I2C_SCL &&
+                pin != WS2812_PIN && pin != BUZZER_PIN && pin != BATTERY_ADC_PIN &&
+                pin != CHARGER_STAT_PIN) {
+                gpio_set_input_enabled(pin, false);
+                gpio_disable_pulls(pin);
+            }
+        }
 #endif
     }
 
@@ -254,13 +283,22 @@ public:
             delay(20);
         }
 
+        // Re-enable input buffers on active pins
+        gpio_set_input_enabled(MODE_BUTTON_PIN, true);
         pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+#if defined(CHARGER_STAT_PIN) && (CHARGER_STAT_PIN >= 0)
+        gpio_set_input_enabled(CHARGER_STAT_PIN, true);
+        pinMode(CHARGER_STAT_PIN, INPUT_PULLUP);
+#endif
+#if defined(BATTERY_ADC_PIN) && (BATTERY_ADC_PIN >= 0)
+        pinMode(BATTERY_ADC_PIN, INPUT);
+#endif
 #if ACTION_BUTTON_PIN >= 0
         pinMode(ACTION_BUTTON_PIN, INPUT_PULLUP);
 #endif
 
         clearI2CBus(I2C_SDA, I2C_SCL);
-#if defined(ARDUINO_ARCH_RP2040)
+#if defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
         CLICK_I2C.setSDA(I2C_SDA);
         CLICK_I2C.setSCL(I2C_SCL);
         CLICK_I2C.begin();
@@ -290,6 +328,7 @@ public:
         }
 
         // Configure hardware dormant wake on MODE button (GPIO 0, active LOW)
+        gpio_set_input_enabled(MODE_BUTTON_PIN, true);
         gpio_set_dormant_irq_enabled(MODE_BUTTON_PIN, GPIO_IRQ_LEVEL_LOW, true);
 
         // Switch clk_ref and clk_sys to XOSC (12MHz) so PLLs can be shut down
@@ -300,15 +339,23 @@ public:
         pll_deinit(pll_sys);
         pll_deinit(pll_usb);
 
-        // Enter hardware DORMANT state: crystal stops, chip halts, current drops to < 100µA
+        // Disable ring oscillator (ROSC) to eliminate background oscillator draw
+        rosc_hw->ctrl = (ROSC_CTRL_ENABLE_VALUE_DISABLE << ROSC_CTRL_ENABLE_LSB);
+
+        // Enable Cortex-M33 deep sleep power gating (SCR.SLEEPDEEP)
+        scb_hw->scr |= (1u << 2);
+
+        // Enter hardware DORMANT state: crystal stops, all internal clocks halt, current drops to < 100µA
         xosc_dormant();
 
         // Woken up by keypress on MODE button!
         gpio_acknowledge_irq(MODE_BUTTON_PIN, GPIO_IRQ_LEVEL_LOW);
         gpio_set_dormant_irq_enabled(MODE_BUTTON_PIN, GPIO_IRQ_LEVEL_LOW, false);
 
-        // Restore clocks (XOSC crystal, system PLL, and peripheral clocks)
+        // Restart ring oscillator and restore system clocks
+        rosc_hw->ctrl = (ROSC_CTRL_ENABLE_VALUE_ENABLE << ROSC_CTRL_ENABLE_LSB);
         runtime_init_clocks();
+        set_sys_clock_khz(48000, false);
 #else
         while (!isModeButtonPressed() && !isActionButtonPressed()) {
             delay(10);
