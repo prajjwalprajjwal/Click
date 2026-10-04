@@ -1,0 +1,413 @@
+[2026-10-03 20:30:18] [INFO] [KiForge.Core:kiforge.py:1929] Resolved project: Click4_v0.1.0 in /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4
+[2026-10-03 20:30:18] [INFO] [KiForge.Core:kiforge.py:1930] Version suffix: v0.1.0 (from default)
+[2026-10-03 20:30:18] [INFO] [KiForge.Core:kiforge.py:1931] Target Output Directory: /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge
+[2026-10-03 20:30:18] [INFO] [KiForge.Core:kiforge.py:1932] Resolved KiCad Python: /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3
+[2026-10-03 20:30:18] [INFO] [KiForge.Studio:kiforge_studio.py:3539] Resolved project directory: /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4
+[2026-10-03 20:30:18] [INFO] [KiForge.Studio:kiforge_studio.py:3540] Resolved output directory: /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge
+[2026-10-03 20:30:18] [INFO] [KiForge.Studio:kiforge_studio.py:3568] Starting background export worker thread...
+[2026-10-03 20:30:18] [INFO] [KiForge.Core:kiforge.py:4783] Running KiForge pipeline with 14 tasks.
+[2026-10-03 20:30:18] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export gerbers --layers F.Cu,B.Cu,F.Paste,B.Paste,F.SilkS,B.SilkS,F.Mask,B.Mask,Edge.Cuts,Dwgs.User,Cmts.User --check-zones --use-drill-file-origin -o /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/Click4.kicad_pcb
+[2026-10-03 20:30:20] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-F_Cu.gtl'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-B_Cu.gbl'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-F_Paste.gtp'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-B_Paste.gbp'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-F_Silkscreen.gto'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-B_Silkscreen.gbo'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-F_Mask.gts'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-B_Mask.gbs'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-User_Drawings.gbr'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-User_Comments.gbr'.
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4-Edge_Cuts.gm1'.
+[2026-10-03 20:30:20] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export drill --format excellon --drill-origin absolute --excellon-units mm --excellon-zeros-format decimal --excellon-oval-format alternate -o /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/Click4.kicad_pcb
+[2026-10-03 20:30:21] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Created file '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/temp_gerbers/Click4.drl'
+Done.
+[2026-10-03 20:30:21] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export pos --format csv --use-drill-file-origin --units mm --exclude-dnp --smd-only --side both /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/Click4.kicad_pcb -o /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/raw_pos.csv
+[2026-10-03 20:30:22] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Wrote position data to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/raw_pos.csv'.
+[2026-10-03 20:30:22] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch export bom --fields Reference,Value,Footprint,Manufacturer,MPN,ID,Description,${QUANTITY},${DNP} --group-by Value,Footprint,Manufacturer,MPN,ID,DNP --ref-range-delimiter  /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/Click4.kicad_sch -o /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/raw_bom.csv
+[2026-10-03 20:30:23] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Wrote bill of materials to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/raw_bom.csv'.
+[2026-10-03 20:30:23] [DEBUG] [KiForge.Core:kiforge.py:2291] Command stderr:
+Fontconfig error: Cannot load default config file: File not found
+[2026-10-03 20:30:23] [INFO] [KiForge.Core:kiforge.py:2551] Schematic PDF uses staged copy with title-block rev v0.1.0
+[2026-10-03 20:30:23] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli sch export pdf /var/folders/5r/vmzq9k053fb14t6vsg77x5z00000gn/T/kiforge_titleblock_a7fg8wej/Click4.kicad_sch -o /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_sch.pdf
+[2026-10-03 20:30:24] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_sch.pdf'.
+Done.
+[2026-10-03 20:30:24] [DEBUG] [KiForge.Core:kiforge.py:2291] Command stderr:
+Fontconfig error: Cannot load default config file: File not found
+[2026-10-03 20:30:24] [INFO] [KiForge.Core:kiforge.py:2849] Auto-converted VRML 3D model to STEP for [U14]: QFN-60_L7.0-W7.0-P0.40-TL-EP3.4.wrl -> 3dmodels/QFN-60_L7.0-W7.0-P0.40-TL-EP3.4.step
+[2026-10-03 20:30:24] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export step --no-optimize-step --subst-models -f -o /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0.step /var/folders/5r/vmzq9k053fb14t6vsg77x5z00000gn/T/kiforge_step_n2yqensh/Click4.kicad_pcb
+[2026-10-03 20:30:29] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Could not add 3D model for LED1.
+File not found: ${EASYEDA2KICAD}/easyeda2kicad.3dshapes/LED-SMD_4P-L4.0-W1.6-L.wrl
+Could not add 3D model for LED2.
+File not found: ${EASYEDA2KICAD}/easyeda2kicad.3dshapes/LED-SMD_4P-L4.0-W1.6-L.wrl
+Could not add 3D model for S1.
+File not found: ${SCOTTOKEEBS_KICAD}/3dmodels/ScottoKeebs_MX.3dshapes/MX_PCB.step
+Could not add 3D model for L1.
+File not found: ${EASYEDA2KICAD}/easyeda2kicad.3dshapes/IND-SMD_L2.0-W1.6_AOTA-B201610S3R3-101-T.wrl
+Could not add 3D model for S2.
+File not found: ${SCOTTOKEEBS_KICAD}/3dmodels/ScottoKeebs_MX.3dshapes/MX_PCB.step
+STEP file '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0.step' created.
+
+Export time 4.824 s
+[2026-10-03 20:30:29] [DEBUG] [KiForge.Core:kiforge.py:2291] Command stderr:
+2026-10-03 20:30:29.668 kicad-cli[32175:792674] Error retrieving source file attributes: Error Domain=NSCocoaErrorDomain Code=260 "The file “Click4_v0.1.0.step” couldn’t be opened because there is no such file." UserInfo={NSFilePath=/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0.step, NSURL=file:///Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0.step, NSUnderlyingError=0x77a100c390 {Error Domain=NSPOSIXErrorDomain Code=2 "No such file or directory"}}
+[2026-10-03 20:30:29] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb render /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/Click4.kicad_pcb --output /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_3d_front.png --rotate 0,0,0 --preset 2 --floor --zoom 0.8 --quality high --width 2560 --height 1440
+[2026-10-03 20:31:16] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Loading…
+Build board outline
+
+Create layers
+Create tracks and vias
+Create zones
+Build Tech layers
+Build Tech layer 11
+Build Tech layer 9
+Build Tech layer 15
+Build Tech layer 13
+Build Tech layer 7
+Build Tech layer 5
+Build Tech layer 3
+Build Tech layer 1
+Build Tech layer 17
+Build Tech layer 19
+Build Tech layer 21
+Build Tech layer 23
+Build Tech layer 39
+Build Tech layer 41
+Build Tech layer 43
+Build Tech layer 45
+Build Tech layer 47
+Build Tech layer 49
+Build Tech layer 51
+Build Tech layer 53
+Build Tech layer 55
+Build Tech layer 57
+Build Tech layer 59
+Build Tech layer 61
+Build Tech layer 63
+Build Tech layer 65
+Build Tech layer 67
+Build Tech layer 69
+Build Tech layer 71
+Build Tech layer 73
+Build Tech layer 75
+Build Tech layer 77
+Build Tech layer 79
+Build Tech layer 81
+Build Tech layer 83
+Build Tech layer 85
+Build Tech layer 87
+Build Tech layer 89
+Build Tech layer 91
+Build Tech layer 93
+Build Tech layer 95
+Build Tech layer 97
+Build Tech layer 99
+Build Tech layer 101
+Build Tech layer 103
+Build Tech layer 105
+Build Tech layer 107
+Build Tech layer 109
+Build Tech layer 111
+Build Tech layer 113
+Build Tech layer 115
+Build Tech layer 117
+Build Tech layer 119
+Build Tech layer 121
+Build Tech layer 123
+Build Tech layer 125
+Build Tech layer 127
+Simplifying copper layer polygons
+Calculating plated copper
+Simplify holes contours
+Build BVH for holes and vias
+Load Raytracing: board
+Load Raytracing: layers
+Loading 3D models...
+Reload time 3.438 s
+Rendering: 4 %
+Rendering: 7 %
+Rendering: 10 %
+Rendering: 12 %
+Rendering: 15 %
+Rendering: 17 %
+Rendering: 19 %
+Rendering: 21 %
+Rendering: 25 %
+Rendering: 29 %
+Rendering: 32 %
+Rendering: 36 %
+Rendering: 39 %
+Rendering: 40 %
+Rendering: 42 %
+Rendering: 42 %
+Rendering: 43 %
+Rendering: 46 %
+Rendering: 49 %
+Rendering: 51 %
+Rendering: 54 %
+Rendering: 56 %
+Rendering: 58 %
+Rendering: 59 %
+Rendering: 60 %
+Rendering: 61 %
+Rendering: 63 %
+Rendering: 63 %
+Rendering: 64 %
+Rendering: 65 %
+Rendering: 66 %
+Rendering: 66 %
+Rendering: 67 %
+Rendering: 67 %
+Rendering: 68 %
+Rendering: 69 %
+Rendering: 69 %
+Rendering: 70 %
+Rendering: 72 %
+Rendering: 75 %
+Rendering: 76 %
+Rendering: 79 %
+Rendering: 82 %
+Rendering: 85 %
+Rendering: 88 %
+Rendering: 90 %
+Rendering: 93 %
+Rendering: 96 %
+Rendering: 99 %
+Rendering: 100 %
+Rendering: Post processing shader
+Rendering time 39.739 s
+Successfully created 3D render image
+[2026-10-03 20:31:16] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb render /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/Click4.kicad_pcb --output /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_3d_back.png --rotate 0,180,0 --preset 2 --floor --zoom 0.8 --quality high --width 2560 --height 1440
+[2026-10-03 20:32:16] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Loading…
+Build board outline
+
+Create layers
+Create tracks and vias
+Create zones
+Build Tech layers
+Build Tech layer 11
+Build Tech layer 9
+Build Tech layer 15
+Build Tech layer 13
+Build Tech layer 7
+Build Tech layer 5
+Build Tech layer 3
+Build Tech layer 1
+Build Tech layer 17
+Build Tech layer 19
+Build Tech layer 21
+Build Tech layer 23
+Build Tech layer 39
+Build Tech layer 41
+Build Tech layer 43
+Build Tech layer 45
+Build Tech layer 47
+Build Tech layer 49
+Build Tech layer 51
+Build Tech layer 53
+Build Tech layer 55
+Build Tech layer 57
+Build Tech layer 59
+Build Tech layer 61
+Build Tech layer 63
+Build Tech layer 65
+Build Tech layer 67
+Build Tech layer 69
+Build Tech layer 71
+Build Tech layer 73
+Build Tech layer 75
+Build Tech layer 77
+Build Tech layer 79
+Build Tech layer 81
+Build Tech layer 83
+Build Tech layer 85
+Build Tech layer 87
+Build Tech layer 89
+Build Tech layer 91
+Build Tech layer 93
+Build Tech layer 95
+Build Tech layer 97
+Build Tech layer 99
+Build Tech layer 101
+Build Tech layer 103
+Build Tech layer 105
+Build Tech layer 107
+Build Tech layer 109
+Build Tech layer 111
+Build Tech layer 113
+Build Tech layer 115
+Build Tech layer 117
+Build Tech layer 119
+Build Tech layer 121
+Build Tech layer 123
+Build Tech layer 125
+Build Tech layer 127
+Simplifying copper layer polygons
+Calculating plated copper
+Simplify holes contours
+Build BVH for holes and vias
+Load Raytracing: board
+Load Raytracing: layers
+Loading 3D models...
+Reload time 2.616 s
+Rendering: 4 %
+Rendering: 9 %
+Rendering: 10 %
+Rendering: 12 %
+Rendering: 15 %
+Rendering: 17 %
+Rendering: 19 %
+Rendering: 21 %
+Rendering: 23 %
+Rendering: 25 %
+Rendering: 28 %
+Rendering: 32 %
+Rendering: 37 %
+Rendering: 39 %
+Rendering: 40 %
+Rendering: 41 %
+Rendering: 41 %
+Rendering: 42 %
+Rendering: 42 %
+Rendering: 43 %
+Rendering: 43 %
+Rendering: 44 %
+Rendering: 46 %
+Rendering: 46 %
+Rendering: 48 %
+Rendering: 49 %
+Rendering: 51 %
+Rendering: 53 %
+Rendering: 55 %
+Rendering: 56 %
+Rendering: 57 %
+Rendering: 57 %
+Rendering: 57 %
+Rendering: 58 %
+Rendering: 59 %
+Rendering: 60 %
+Rendering: 60 %
+Rendering: 61 %
+Rendering: 62 %
+Rendering: 63 %
+Rendering: 63 %
+Rendering: 64 %
+Rendering: 64 %
+Rendering: 64 %
+Rendering: 65 %
+Rendering: 66 %
+Rendering: 66 %
+Rendering: 67 %
+Rendering: 67 %
+Rendering: 67 %
+Rendering: 67 %
+Rendering: 68 %
+Rendering: 68 %
+Rendering: 68 %
+Rendering: 69 %
+Rendering: 69 %
+Rendering: 70 %
+Rendering: 72 %
+Rendering: 72 %
+Rendering: 75 %
+Rendering: 79 %
+Rendering: 82 %
+Rendering: 85 %
+Rendering: 87 %
+Rendering: 90 %
+Rendering: 93 %
+Rendering: 95 %
+Rendering: 98 %
+Rendering: 100 %
+Rendering: Post processing shader
+Rendering time 54.866 s
+Successfully created 3D render image
+[2026-10-03 20:32:16] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export svg -l F.Cu,Edge.Cuts -n --drill-shape-opt 2 --cl Edge.Cuts --exclude-drawing-sheet --page-size-mode 2 --mode-single --output /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_front.svg --black-and-white /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/Click4.kicad_pcb
+[2026-10-03 20:32:18] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_front.svg'.
+Done.
+[2026-10-03 20:32:18] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/MacOS/kicad-cli pcb export svg -l B.Cu,Edge.Cuts -m -n --drill-shape-opt 2 --cl Edge.Cuts --exclude-drawing-sheet --page-size-mode 2 --mode-single --output /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_back.svg --black-and-white /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/Click4.kicad_pcb
+[2026-10-03 20:32:19] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Plotted to '/Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_back.svg'.
+Done.
+[2026-10-03 20:32:19] [INFO] [KiForge.Core:kiforge.py:3380] Generated merged A4 homebrew SVG: /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_homebrew.svg
+[2026-10-03 20:32:35] [INFO] [KiForge.Core:kiforge.py:3912] Exported PDF via _export_pdf_via_wx subprocess: /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/Click4_v0.1.0_homebrew.pdf
+[2026-10-03 20:32:36] [INFO] [KiForge.Core:kiforge.py:4502] InteractiveHtmlBom not found/working in target Python environment. Attempting to install via pip...
+[2026-10-03 20:32:36] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3 -m pip install --disable-pip-version-check --user InteractiveHtmlBom==2.11.2
+[2026-10-03 20:32:46] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Collecting InteractiveHtmlBom==2.11.2
+  Downloading interactivehtmlbom-2.11.2-py3-none-any.whl (150 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 150.0/150.0 KB 379.8 kB/s eta 0:00:00
+Requirement already satisfied: wxpython>=4.0 in /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages (from InteractiveHtmlBom==2.11.2) (4.2.2a1)
+Collecting jsonschema>=4.1
+  Downloading jsonschema-4.25.1-py3-none-any.whl (90 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 90.0/90.0 KB 446.2 kB/s eta 0:00:00
+Collecting referencing>=0.28.4
+  Downloading referencing-0.36.2-py3-none-any.whl (26 kB)
+Collecting jsonschema-specifications>=2023.03.6
+  Downloading jsonschema_specifications-2025.9.1-py3-none-any.whl (18 kB)
+Collecting rpds-py>=0.7.1
+  Downloading rpds_py-0.27.1-cp39-cp39-macosx_11_0_arm64.whl (354 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 354.1/354.1 KB 2.2 MB/s eta 0:00:00
+Collecting attrs>=22.2.0
+  Downloading attrs-26.1.0-py3-none-any.whl (67 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 67.5/67.5 KB 6.9 MB/s eta 0:00:00
+Requirement already satisfied: six in /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/3.9/lib/python3.9/site-packages (from wxpython>=4.0->InteractiveHtmlBom==2.11.2) (1.17.0)
+Collecting numpy
+  Downloading numpy-2.0.2-cp39-cp39-macosx_14_0_arm64.whl (5.3 MB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 5.3/5.3 MB 13.7 MB/s eta 0:00:00
+Collecting typing-extensions>=4.4.0
+  Downloading typing_extensions-4.16.0-py3-none-any.whl (45 kB)
+     ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━ 45.6/45.6 KB 5.1 MB/s eta 0:00:00
+Installing collected packages: typing-extensions, rpds-py, numpy, attrs, referencing, jsonschema-specifications, jsonschema, InteractiveHtmlBom
+Successfully installed InteractiveHtmlBom-2.11.2 attrs-26.1.0 jsonschema-4.25.1 jsonschema-specifications-2025.9.1 numpy-2.0.2 referencing-0.36.2 rpds-py-0.27.1 typing-extensions-4.16.0
+[2026-10-03 20:32:46] [DEBUG] [KiForge.Core:kiforge.py:2291] Command stderr:
+WARNING: The scripts f2py and numpy-config are installed in '/Users/prajjwal/Library/Python/3.9/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script jsonschema is installed in '/Users/prajjwal/Library/Python/3.9/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+  WARNING: The script generate_interactive_bom is installed in '/Users/prajjwal/Library/Python/3.9/bin' which is not on PATH.
+  Consider adding this directory to PATH or, if you prefer to suppress this warning, use --no-warn-script-location.
+[2026-10-03 20:32:46] [INFO] [KiForge.Core:kiforge.py:4521] InteractiveHtmlBom successfully installed and verified via pip.
+[2026-10-03 20:32:46] [INFO] [KiForge.Core:kiforge.py:2269] Running command: /Applications/KiCad/KiCad.app/Contents/Frameworks/Python.framework/Versions/Current/bin/python3 -c import sys
+sys.path.append('/Users/prajjwal/Library/Application Support/kiforge/packages')
+try:
+    import wx
+    wx.DisableAsserts()
+except Exception:
+    pass
+import runpy
+runpy.run_module('InteractiveHtmlBom.generate_interactive_bom', run_name='__main__') --include-tracks --include-nets --show-fields References,Value,Footprint,Manufacturer,MPN,ID,Description,Quantity,DNP --group-fields Value,Footprint,Manufacturer,MPN,ID,DNP --extra-fields Manufacturer,MPN,ID,Description,DNP --extra-data-file /var/folders/5r/vmzq9k053fb14t6vsg77x5z00000gn/T/kiforge_ibom_tydaogwe/Click4.kicad_pcb --no-browser --dest-dir /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge /var/folders/5r/vmzq9k053fb14t6vsg77x5z00000gn/T/kiforge_ibom_tydaogwe/Click4.kicad_pcb
+[2026-10-03 20:33:06] [DEBUG] [KiForge.Core:kiforge.py:2289] Command stdout:
+Loading /var/folders/5r/vmzq9k053fb14t6vsg77x5z00000gn/T/kiforge_ibom_tydaogwe/Click4.kicad_pcb
+2026-10-03 20:32:50,854 INFO Compressing pcb data
+2026-10-03 20:33:06,111 INFO Dumping pcb data
+2026-10-03 20:33:06,137 INFO Created file /Users/prajjwal/Documents/GitHub/Click/hardware/PCB/Click4/kiforge/ibom.html
+[2026-10-03 20:33:06] [DEBUG] [KiForge.Core:kiforge.py:2291] Command stderr:
+08:32:47 PM: Debug: Adding duplicate image handler for 'PNG file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'JPEG file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'TIFF file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'GIF file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'PNM file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'PCX file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'IFF file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'Windows icon file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'Windows cursor file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'Windows animated cursor file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'TGA file'
+08:32:47 PM: Debug: Adding duplicate image handler for 'XPM file'
+[2026-10-03 20:33:06] [INFO] [KiForge.Core:kiforge.py:4557] Renamed InteractiveHtmlBom output to Click4_v0.1.0_ibom.html
+[2026-10-03 20:33:06] [INFO] [KiForge.Core:kiforge.py:4597] Updated InteractiveHtmlBom HTML page title and metadata header.
+[2026-10-03 20:33:07] [INFO] [KiForge.Core:kiforge.py:4667] Saved KiCad BOM: Click4_v0.1.0_bom.csv
+[2026-10-03 20:33:07] [INFO] [KiForge.Core:kiforge.py:4697] Saved KiCad placement: Click4_v0.1.0_pos.csv
+[2026-10-03 20:33:07] [INFO] [KiForge.Core:kiforge.py:2200] Saved JLCPCB BOM: Click4_v0.1.0_bom_jlc.csv
+[2026-10-03 20:33:07] [INFO] [KiForge.Core:kiforge.py:2217] Saved JLCPCB CPL: Click4_v0.1.0_cpl_jlc.csv
+[2026-10-03 20:33:07] [INFO] [KiForge.Core:kiforge.py:4847] KiForge Exporter pipeline executed successfully.
+[2026-10-03 20:33:07] [INFO] [KiForge.Studio:kiforge_studio.py:3571] Background export worker thread finished. Success status: True
