@@ -21,7 +21,7 @@ run_asset_pipeline()
 
 def sync_flasher_bins(source, target, env):
     """Copy freshly built binaries into web_flasher/ so web flasher is always up to date."""
-    bins = ["firmware.bin", "bootloader.bin", "partitions.bin"]
+    bins = ["firmware.bin", "bootloader.bin", "partitions.bin", "firmware.uf2"]
     for b in bins:
         src = os.path.join(BUILD_DIR, b)
         dst = os.path.join(FLASHER_DIR, b)
@@ -29,4 +29,7 @@ def sync_flasher_bins(source, target, env):
             shutil.copy2(src, dst)
     print("\n[post_build] web_flasher/ binaries synced.")
 
-env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", sync_flasher_bins)
+if "espressif32" in env.get("PIOPLATFORM", ""):
+    env.AddPostAction("$BUILD_DIR/${PROGNAME}.bin", sync_flasher_bins)
+else:
+    env.AddPostAction("$BUILD_DIR/${PROGNAME}.elf", sync_flasher_bins)

@@ -3,15 +3,17 @@
 InputManager::InputManager() = default;
 
 void InputManager::init() {
+#if ACTION_BUTTON_PIN >= 0
     pinMode(ACTION_BUTTON_PIN, INPUT_PULLUP);
+#endif
     pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
 }
 
 void InputManager::update() {
     uint32_t now = millis();
 
-    bool actionCurrentlyPressed = digitalRead(ACTION_BUTTON_PIN) == LOW;
-    bool modeCurrentlyPressed = digitalRead(MODE_BUTTON_PIN) == LOW;
+    bool actionCurrentlyPressed = isActionButtonPressed();
+    bool modeCurrentlyPressed = isModeButtonPressed();
     bool bothCurrentlyPressed = actionCurrentlyPressed && modeCurrentlyPressed;
 
     if (!bothCurrentlyPressed) {

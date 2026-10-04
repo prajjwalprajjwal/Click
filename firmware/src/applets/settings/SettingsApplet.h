@@ -33,8 +33,10 @@ public:
             char buf[32];
             if (charging) {
                 snprintf(buf, sizeof(buf), "Bat: %d%% [CHARGING]", pct);
+            } else if (pct >= 99 && voltage >= 4.12f) {
+                snprintf(buf, sizeof(buf), "Bat: 100%% [CHARGED]");
             } else {
-                snprintf(buf, sizeof(buf), "Bat: %d%% [DISCHARGING]", pct);
+                snprintf(buf, sizeof(buf), "Bat: %d%% [BATTERY]", pct);
             }
             ThemeFonts::drawCentered(&Rajdhani12pt7b, buf, 34);
 
@@ -52,15 +54,17 @@ public:
             // Sub-page 1: System / Hardware Info (Rajdhani Theme)
             ThemeFonts::drawCentered(&Rajdhani18pt7b, "SYSTEM INFO", 16);
 
-            uint64_t chipid = ESP.getEfuseMac();
-            char serialStr[16];
-            snprintf(serialStr, sizeof(serialStr), "%04X%08X", (uint16_t)(chipid >> 32), (uint32_t)chipid);
+            String serialStr = DeviceInfo::getID();
 
             char buf[32];
+#if defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
+            snprintf(buf, sizeof(buf), "FW: v1.0.3 (RP2354)");
+#else
             snprintf(buf, sizeof(buf), "FW: v1.0.3 (ESP32)");
+#endif
             ThemeFonts::drawCentered(&Rajdhani12pt7b, buf, 32);
 
-            snprintf(buf, sizeof(buf), "ID: %s", serialStr);
+            snprintf(buf, sizeof(buf), "ID: %s", serialStr.c_str());
             ThemeFonts::drawCentered(&Rajdhani12pt7b, buf, 46);
 
             float voltage = BatteryManager::getSmoothVoltage();

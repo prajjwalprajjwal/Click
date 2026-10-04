@@ -5,6 +5,8 @@
 #include "system/Display.h"
 #include "system/OSManager.h"
 #include "system/device_info.hpp"
+#include "system/WS2812.h"
+#include "system/SoundFX.h"
 
 // Modular Applets
 #include "applets/clicker/CounterApplet.h"
@@ -20,7 +22,7 @@
   #include "generated_assets/bootscreen.h"
 #endif
 
-Adafruit_SSD1306 display(128, 64, &Wire, -1);
+Adafruit_SSD1306 display(128, 64, &CLICK_I2C, OLED_RST_PIN);
 
 OSManager osManager;
 HomeApplet homeApplet;
@@ -30,10 +32,14 @@ SettingsApplet settingsApplet;
 FlappyBirdApplet flappyBirdApplet;
 
 void onModeButtonClick() {
-    osManager.recordActivity();
+    if (osManager.recordActivity()) {
+        SoundFX::playClick();
+        return; // Screen was off; first click wakes the screen
+    }
+    SoundFX::playClick();
     Applet* applet = osManager.getCurrentApplet();
-    if (applet == &settingsApplet || applet == &homeApplet) {
-        osManager.switchToApplet(0); // Exit settings / screensaver back to Clicker
+    if (applet == &homeApplet) {
+        osManager.switchToApplet(0); // Exit screensaver back to Clicker
         return;
     }
     if (applet) {
@@ -43,7 +49,9 @@ void onModeButtonClick() {
 }
 
 void onModeButtonHold() {
-    osManager.recordActivity();
+    if (osManager.recordActivity()) {
+        return;
+    }
     Applet* applet = osManager.getCurrentApplet();
     if (applet) {
         applet->onModeHold();
@@ -57,7 +65,9 @@ void onModeButtonHold() {
 }
 
 void onActionButtonClick() {
-    osManager.recordActivity();
+    if (osManager.recordActivity()) {
+        return; // Screen was off; wake display
+    }
     Applet* applet = osManager.getCurrentApplet();
     if (applet == &homeApplet) {
         osManager.switchToApplet(0); // Wake from screensaver to Clicker
@@ -69,7 +79,9 @@ void onActionButtonClick() {
 }
 
 void onActionButtonHold() {
-    osManager.recordActivity();
+    if (osManager.recordActivity()) {
+        return;
+    }
     Applet* applet = osManager.getCurrentApplet();
     if (applet == &homeApplet) {
         osManager.switchToApplet(0); // Wake from screensaver to Clicker
@@ -81,7 +93,9 @@ void onActionButtonHold() {
 }
 
 void onBothButtonsHeld() {
-    osManager.recordActivity();
+    if (osManager.recordActivity()) {
+        return;
+    }
     Applet* applet = osManager.getCurrentApplet();
     if (applet) {
         applet->onBothHeld();
@@ -93,7 +107,15 @@ static uint32_t totalUptimeMinutes = 0;
 static uint32_t lastUptimeCheckMs = 0;
 static void handleSerialTelemetry();
 
+#if defined(CLICK_HW_TEST_MENU)
+#include "system/HardwareDiagnostics.h"
+#endif
+
 void setup() {
+#if defined(CLICK_HW_TEST_MENU)
+    HardwareDiagnostics::run();
+#endif
+
     Serial.begin(115200);
 
     // Early preload of state so telemetry can answer immediately even during boot
@@ -110,7 +132,13 @@ void setup() {
         delay(10);
     }
 
-    Wire.begin(OLED_SDA_PIN, OLED_SCL_PIN);
+#if defined(ARDUINO_ARCH_RP2040)
+    CLICK_I2C.setSDA(OLED_SDA_PIN);
+    CLICK_I2C.setSCL(OLED_SCL_PIN);
+    CLICK_I2C.begin();
+#else
+    CLICK_I2C.begin(OLED_SDA_PIN, OLED_SCL_PIN);
+#endif
 
     if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) {
         while (1) {
@@ -119,8 +147,19 @@ void setup() {
         }
     }
 
+    display.setRotation(2); // Rotate display 180 degrees
+    display.ssd1306_command(SSD1306_SETCONTRAST);
+    display.ssd1306_command(0x3F); // High-contrast crisp white without burning 20mA
+
+    // Initialize RGB LEDs, Sound Buzzer, and Battery Monitoring
+    WS2812Driver::init();
+    SoundFX::init();
+    BatteryManager::init();
+    SoundFX::playStartup();
+    WS2812Driver::flash(0, 180, 255, 250);
+
     // Set 400kHz Fast I2C mode for smooth SSD1306 refresh
-    Wire.setClock(400000);
+    CLICK_I2C.setClock(400000);
 
     // Boot screen: display custom device name (default: CLICKER) and "Starting up..."
     display.clearDisplay();
@@ -221,9 +260,8 @@ static void handleSerialTelemetry() {
                     // Flush any active session clicks immediately to NVS before reading
                     counterApplet.persistNow();
 
-                    uint64_t mac = ESP.getEfuseMac();
-                    char chipId[16];
-                    snprintf(chipId, sizeof(chipId), "%04X%08X", static_cast<uint16_t>(mac >> 32), static_cast<uint32_t>(mac));
+                    String idStr = DeviceInfo::getID();
+                    const char* chipId = idStr.c_str();
                     const char* dName = DeviceInfo::getCustomName();
                     if (!dName || dName[0] == '\0') {
                         dName = "CLICKER";
@@ -283,6 +321,25 @@ static void handleSerialTelemetry() {
 }
 
 void loop() {
+    uint32_t frameStart = millis();
+
+    // During charging, maintain a breathing LED of multi-colors
+    static bool wasCharging = false;
+    bool charging = BatteryManager::isCharging();
+    if (charging) {
+        if (!wasCharging || !WS2812Driver::isBusy()) {
+            if (!WS2812Driver::isChargingBreatheActive()) {
+                WS2812Driver::startChargingBreathe();
+            }
+        }
+    } else if (wasCharging) {
+        WS2812Driver::clear();
+    }
+    wasCharging = charging;
+
+    SoundFX::update();
+    WS2812Driver::update();
+
     osManager.update();
     osManager.draw();
 
@@ -299,6 +356,13 @@ void loop() {
         }
     }
 
-    // Yield execution to FreeRTOS scheduler so IDLE task and TWDT watchdog on Core 1 are fed!
-    delay(2);
+    // Dynamic low-power frame pacing:
+    // Cap rendering to ~30 FPS (33ms). Sleeping during idle frame time invokes
+    // ARM __wfi() (Wait For Interrupt), dramatically cutting active MCU current!
+    uint32_t elapsed = millis() - frameStart;
+    if (elapsed < 33) {
+        delay(33 - elapsed);
+    } else {
+        delay(2);
+    }
 }

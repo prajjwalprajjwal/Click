@@ -2,9 +2,7 @@
 #define INPUT_MANAGER_H
 
 #include <Arduino.h>
-
-#define MODE_BUTTON_PIN 14
-#define ACTION_BUTTON_PIN 32
+#include "PinConfig.h"
 #define ACTION_HOLD_THRESHOLD_MS 1000
 #define MODE_HOLD_THRESHOLD_MS 1000
 #define BOTH_HOLD_THRESHOLD_MS 4000

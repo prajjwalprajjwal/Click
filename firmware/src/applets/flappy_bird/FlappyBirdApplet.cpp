@@ -1,5 +1,7 @@
 #include "FlappyBirdApplet.h"
 #include "Display.h"
+#include "system/WS2812.h"
+#include "system/SoundFX.h"
 
 void FlappyBirdApplet::preloadState() {
     // Read High Score from ESP32 NVS memory
@@ -25,6 +27,8 @@ void FlappyBirdApplet::draw() {
 void FlappyBirdApplet::cleanup() {
     gameState     = STATE_IDLE;
     jumpRequested = false;
+    WS2812Driver::clear();
+    SoundFX::stop();
 }
 
 void FlappyBirdApplet::resetGame() {
@@ -35,8 +39,9 @@ void FlappyBirdApplet::resetGame() {
 
     // Spawn pipes far enough right to prevent instant start death
     for (int i = 0; i < NUM_PIPES; ++i) {
-        pipeX[i]    = 140.0f + (i * 75.0f);
-        pipeGapY[i] = random(6, 64 - GAP_HEIGHT - 6);
+        pipeX[i]      = 140.0f + (i * 75.0f);
+        pipeGapY[i]   = random(6, 64 - GAP_HEIGHT - 6);
+        pipePassed[i] = false;
     }
 }
 
@@ -51,6 +56,13 @@ void FlappyBirdApplet::handleGameOver() {
         prefs.begin("click_stats", false);
         prefs.putUInt("flappy_hi", highScore);
         prefs.end();
+        // High score celebratory fanfare and rainbow dance
+        SoundFX::playCelebrationFanfare();
+        WS2812Driver::startCelebration(2500);
+    } else {
+        // Crash / game over sound and red alert flash for game over
+        SoundFX::playGameOver();
+        WS2812Driver::flash(255, 0, 0, 450);
     }
 }
 
@@ -66,7 +78,10 @@ void FlappyBirdApplet::updateAndDraw(Adafruit_SSD1306& disp) {
         lastFrameTime = now;
 
         if (gameState == STATE_PLAYING) {
-            if (pressed) velocity = kJumpImpulse;
+            if (pressed) {
+                velocity = kJumpImpulse;
+                SoundFX::playFlap();
+            }
             velocity += kGravity;
             birdY    += velocity;
 
@@ -75,14 +90,21 @@ void FlappyBirdApplet::updateAndDraw(Adafruit_SSD1306& disp) {
                 handleGameOver();
             }
 
-            // Pipe collisions
+            // Pipe collisions and passing detection
             for (int i = 0; i < NUM_PIPES; ++i) {
                 pipeX[i] -= PIPE_SPEED;
 
-                if (pipeX[i] < -PIPE_WIDTH) {
-                    pipeX[i]    = 128.0f;
-                    pipeGapY[i] = random(6, 64 - GAP_HEIGHT - 6);
+                // Passing through pipes successfully
+                if (!pipePassed[i] && (pipeX[i] + PIPE_WIDTH < birdX)) {
+                    pipePassed[i] = true;
                     ++currentScore;
+                    SoundFX::playScore(); // Pipe cleared double chime!
+                }
+
+                if (pipeX[i] < -PIPE_WIDTH) {
+                    pipeX[i]      = 128.0f;
+                    pipeGapY[i]   = random(6, 64 - GAP_HEIGHT - 6);
+                    pipePassed[i] = false;
                 }
 
                 bool xOverlap = (pipeX[i] < birdX + BIRD_WIDTH) &&
@@ -96,12 +118,16 @@ void FlappyBirdApplet::updateAndDraw(Adafruit_SSD1306& disp) {
             if (pressed) {
                 resetGame();
                 gameState = STATE_PLAYING;
+                velocity = kJumpImpulse;
+                SoundFX::playFlap();
             }
         } else if (gameState == STATE_GAMEOVER) {
             // Only allow restart after cooldown has elapsed
             if (pressed && (now - gameOverTime >= GAMEOVER_COOLDOWN_MS)) {
                 resetGame();
                 gameState = STATE_PLAYING;
+                velocity = kJumpImpulse;
+                SoundFX::playFlap();
             }
         }
     }

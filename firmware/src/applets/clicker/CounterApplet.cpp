@@ -3,6 +3,8 @@
 #include "applets/screensaver/HomeApplet.h"
 #include "ClickerConfig.h"
 #include "SisyphusSprites.h"
+#include "system/WS2812.h"
+#include "system/SoundFX.h"
 
 extern HomeApplet homeApplet;
 
@@ -106,6 +108,9 @@ void CounterApplet::handleClick() {
   if (unlocks != persistence.getHomeUnlockFlags()) {
     persistence.setHomeUnlockFlags(unlocks);
     homeApplet.applyUnlockState(unlocks);
+    WS2812Driver::startCelebration(2500); // Big rainbow party on milestone unlock!
+  } else if (lifetime > 0 && (lifetime % 50 == 0)) {
+    WS2812Driver::startCelebration(1400); // Mini milestone celebration every 50 clicks!
   }
 
   // While rolling backward, register the first click to hold the rolling position at that step for 1 second
@@ -115,6 +120,8 @@ void CounterApplet::handleClick() {
     pendingPushes = 0;
     lastFrameTime = now;
     frameDirty = true;
+    WS2812Driver::clear(); // Stopped moving back!
+    SoundFX::stop();
     return;
   }
 
@@ -164,6 +171,7 @@ void CounterApplet::updateAnimation(uint32_t now) {
     }
   } else if (animMode == SisyphusAnimMode::ROLLING_BACK) {
     // Reverse downhill motion: paced backwards stride and opposite boulder roll
+
     if ((now - lastFrameTime) >= ROLLBACK_FRAME_INTERVAL_MS) {
       lastFrameTime = now;
 
@@ -179,6 +187,8 @@ void CounterApplet::updateAnimation(uint32_t now) {
         climbProgress = 0;
         animMode = SisyphusAnimMode::IDLE_WALKING;
         pushFrame = 0;
+        WS2812Driver::clear(); // Stopped at base
+        SoundFX::playSisyphusBottomChime(); // Small light chime once it reaches bottom!
       } else {
         climbProgress -= step;
         // Cycle legs in reverse stride (3 -> 2 -> 1 -> 0 -> 3...)
@@ -208,6 +218,7 @@ void CounterApplet::updateAnimation(uint32_t now) {
       lastFrameTime = now;
       pushFrame = 3;
       frameDirty = true;
+      SoundFX::playSisyphusDownhill(); // Short 3 beeps when it starts moving downhill!
     } else if ((now - lastFrameTime) >= WALK_FRAME_INTERVAL_MS) {
       lastFrameTime = now;
     }
@@ -268,6 +279,8 @@ void CounterApplet::resetAll() {
 
   homeApplet.applyUnlockState(0);
   persistNow();
+  WS2812Driver::clear();
+  SoundFX::stop();
   frameDirty = true;
 
   Serial.println("[SISYPHUS] Reset - count cleared");
@@ -368,9 +381,17 @@ void CounterApplet::draw() {
   delay(1);
 }
 
-void CounterApplet::cleanup() { persistNow(); }
+void CounterApplet::cleanup() {
+  WS2812Driver::clear();
+  SoundFX::stop();
+  persistNow();
+}
 
-void CounterApplet::onPrepareSleep() { persistNow(); }
+void CounterApplet::onPrepareSleep() {
+  WS2812Driver::clear();
+  SoundFX::stop();
+  persistNow();
+}
 
 void CounterApplet::onActionClick() { handleClick(); }
 

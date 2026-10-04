@@ -1,6 +1,9 @@
 #include "OSManager.h"
 #include "Display.h"
 #include "PowerManager.h"
+#include "WS2812.h"
+#include "SoundFX.h"
+#include "battery.hpp"
 
 OSManager::OSManager() = default;
 
@@ -20,7 +23,7 @@ void OSManager::update() {
     inputManager.update();
     
     // Any physical button contact keeps device active
-    if (digitalRead(ACTION_BUTTON_PIN) == LOW || digitalRead(MODE_BUTTON_PIN) == LOW) {
+    if (isActionButtonPressed() || isModeButtonPressed()) {
         recordActivity();
     }
     
@@ -39,26 +42,68 @@ void OSManager::draw() {
     }
 }
 
-void OSManager::recordActivity() {
+bool OSManager::recordActivity() {
     lastActivityTime = millis();
-    
+    bool wokeDisplay = false;
+
+    // Wake display if turned off during charging idle standby
+    if (!displayOn && sleepState == AWAKE) {
+        displayOn = true;
+        isDimmed = false;
+        display.ssd1306_command(SSD1306_DISPLAYON);
+        display.ssd1306_command(SSD1306_SETCONTRAST);
+        display.ssd1306_command(0x3F);
+        if (currentApplet) {
+            currentApplet->draw();
+        }
+        wokeDisplay = true;
+    } else if (isDimmed) {
+        isDimmed = false;
+        display.ssd1306_command(SSD1306_SETCONTRAST);
+        display.ssd1306_command(0x3F); // Restore active contrast
+    }
+
     // Wake if in light sleep
     if (sleepState == LIGHT_SLEEP) {
         wakeFromLightSleep();
+        wokeDisplay = true;
     }
+
+    return wokeDisplay;
 }
 
 void OSManager::checkSleepConditions() {
     uint32_t now = millis();
     uint32_t idleTime = now - lastActivityTime;
-    
+    bool charging = BatteryManager::isCharging();
+
+    // While charging via USB, keep MCU active so multi-color breathing LED continues.
+    // Turn display OFF after 20s to protect OLED from burn-in.
+    if (charging) {
+        if (displayOn && idleTime >= lightSleepTimeout) {
+            displayOn = false;
+            display.ssd1306_command(SSD1306_DISPLAYOFF);
+        } else if (!isDimmed && displayOn && idleTime >= 8000) {
+            isDimmed = true;
+            display.ssd1306_command(SSD1306_SETCONTRAST);
+            display.ssd1306_command(0x05);
+        }
+        return;
+    }
+
+    // On battery: perform idle dimming and true soft kill dormant sleep (< 0.1mA)
     if (sleepState == AWAKE) {
+        if (!isDimmed && idleTime >= 8000) {
+            isDimmed = true;
+            display.ssd1306_command(SSD1306_SETCONTRAST);
+            display.ssd1306_command(0x05); // Idle dimming: drops OLED current by ~60%
+        }
         if (idleTime >= deepSleepTimeout) {
             Serial.println("[OSManager] Entering DEEP SLEEP (45s idle)");
             enterDeepSleep();
             return;
         } else if (idleTime >= lightSleepTimeout) {
-            Serial.println("[OSManager] Entering LIGHT SLEEP (20s idle)");
+            Serial.println("[OSManager] Entering DORMANT SLEEP (20s idle, < 0.1mA)...");
             enterLightSleep();
             return;
         }
@@ -75,9 +120,13 @@ void OSManager::enterLightSleep() {
     sleepState = LIGHT_SLEEP;
     displayOn = false;
     
+    // Solidly extinguish and clamp LEDs to GND before entering dormant sleep
+    WS2812Driver::clearAndHaltForSleep();
+    SoundFX::stop();
+
     Serial.println("[OSManager] Light sleep: Entering low power sleep (wake on button press)...");
 
-    // Execute GPIO hold, power domain teardown, RF off, and enter esp_light_sleep_start()
+    // Execute GPIO hold, power domain teardown, RF off, and enter hardware dormant mode
     PowerManager::enterLightSleep();
 
     // CPU resumes here immediately upon GPIO wakeup
@@ -88,10 +137,17 @@ void OSManager::wakeFromLightSleep() {
     if (sleepState != LIGHT_SLEEP) return;
     sleepState = AWAKE;
     displayOn = true;
+    isDimmed = false;
     
     // Explicitly re-initialize display driver instance post-wake
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C, true, true);
+    display.setRotation(2);
     display.ssd1306_command(SSD1306_DISPLAYON);
+    display.ssd1306_command(SSD1306_SETCONTRAST);
+    display.ssd1306_command(0x3F);
+
+    // Re-initialize NeoPixel PIO engine after wake
+    WS2812Driver::reinit();
 
     // Update last activity time to prevent immediate re-entry
     recordActivity();
@@ -112,11 +168,14 @@ void OSManager::enterDeepSleep() {
     sleepState = DEEP_SLEEP;
     displayOn = false;
     
+    WS2812Driver::clearAndHaltForSleep();
+    SoundFX::stop();
+
     // Turn off display
     display.clearDisplay();
     display.ssd1306_command(SSD1306_DISPLAYOFF);
-    display.display();
     
+#if defined(ESP32)
     // Configure RTC GPIO wakeup & pull-ups for both buttons (D14 and D32)
     rtc_gpio_init((gpio_num_t)MODE_BUTTON_PIN);
     rtc_gpio_set_direction((gpio_num_t)MODE_BUTTON_PIN, RTC_GPIO_MODE_INPUT_ONLY);
@@ -136,6 +195,11 @@ void OSManager::enterDeepSleep() {
     
     // Enter deep sleep
     esp_deep_sleep_start();
+#else
+    Serial.println("[OSManager] Deep sleep: entering dormant sleep mode... (wake on button press)");
+    PowerManager::enterLightSleep();
+    wakeFromLightSleep();
+#endif
 }
 
 void OSManager::registerApplet(Applet* applet) {
@@ -160,9 +224,6 @@ void OSManager::switchToApplet(uint8_t index) {
 
 void OSManager::switchToNextApplet() {
     if (appletCount == 0) return;
-    // Main applets cycle through indices 0..2 (Clicker, Just Ten, Flappy Bird)
-    // Settings applet at index 3 is reached via Hold MODE
-    uint8_t mainAppletCount = (appletCount > 3) ? 3 : appletCount;
-    uint8_t nextIndex = (currentAppletIndex + 1) % mainAppletCount;
+    uint8_t nextIndex = (currentAppletIndex + 1) % appletCount;
     switchToApplet(nextIndex);
 }

@@ -4,6 +4,8 @@
 #include "InputManager.h"
 #include "Display.h"
 #include "fonts/ThemeFonts.h"
+#include "system/WS2812.h"
+#include "system/SoundFX.h"
 
 void TimingGameApplet::preloadState() {
     prefs.begin("click_stats", true);
@@ -21,20 +23,27 @@ void TimingGameApplet::init() {
 }
 
 bool TimingGameApplet::isActionPressed() const {
-    return digitalRead(ACTION_BUTTON_PIN) == LOW;
+    return isActionButtonPressed();
 }
 
 void TimingGameApplet::formatSeconds4(uint64_t micros, char* buffer, size_t bufferSize) {
-    snprintf(buffer, bufferSize, "%.4fs", static_cast<double>(micros) / 1000000.0);
+    uint32_t totalSec = static_cast<uint32_t>(micros / 1000000ULL);
+    uint32_t frac = static_cast<uint32_t>((micros % 1000000ULL) / 100ULL); // 4 decimal places
+    snprintf(buffer, bufferSize, "%lu.%04lus", (unsigned long)totalSec, (unsigned long)frac);
 }
 
 void TimingGameApplet::formatDeviation4(int64_t diffMicros, char* buffer, size_t bufferSize) {
-    const double diff = static_cast<double>(diffMicros) / 1000000.0;
-    if (diff >= 0.0) {
-        snprintf(buffer, bufferSize, "+%.4fs", diff);
+    char sign = '+';
+    uint64_t absDiff = 0;
+    if (diffMicros < 0) {
+        sign = '-';
+        absDiff = static_cast<uint64_t>(-diffMicros);
     } else {
-        snprintf(buffer, bufferSize, "-%.4fs", -diff);
+        absDiff = static_cast<uint64_t>(diffMicros);
     }
+    uint32_t totalSec = static_cast<uint32_t>(absDiff / 1000000ULL);
+    uint32_t frac = static_cast<uint32_t>((absDiff % 1000000ULL) / 100ULL); // 4 decimal places
+    snprintf(buffer, bufferSize, "%c%lu.%04lus", sign, (unsigned long)totalSec, (unsigned long)frac);
 }
 
 void TimingGameApplet::drawIdle() const {
@@ -99,13 +108,28 @@ void TimingGameApplet::update() {
     if (state == IDLE && pressing && !wasPressing) {
         state = COUNTING;
         holdStartUs = micros();
+        SoundFX::playJustTenStart();
     } else if (state == COUNTING && wasPressing && !pressing) {
         holdDurationUs = micros() - holdStartUs;
         state = RESULT;
         resultDisplayTime = now;
 
+        int64_t diff = std::abs(static_cast<int64_t>(holdDurationUs) - 10000000LL);
+        // 5% of 10s is 0.5000s = 500,000 µs (range: 9.5000s to 10.5000s)
+        bool within5Percent = (diff <= 500000LL);
+
+        if (within5Percent) {
+            // Victory celebration fanfare and dazzling dual-LED rainbow party!
+            SoundFX::playCelebrationFanfare();
+            WS2812Driver::startCelebration(3500);
+        } else {
+            // Action button released completion sound and warm amber flash
+            SoundFX::playJustTenRelease();
+            WS2812Driver::flash(255, 120, 0, 1000);
+        }
+
         if (holdDurationUs > 0) {
-            int64_t currentDiff = std::abs(static_cast<int64_t>(holdDurationUs) - 10000000LL);
+            int64_t currentDiff = diff;
             int64_t bestDiff = (bestTimeUs == 0) ? -1 : std::abs(static_cast<int64_t>(bestTimeUs) - 10000000LL);
             if (bestTimeUs == 0 || currentDiff < bestDiff) {
                 bestTimeUs = static_cast<uint32_t>(holdDurationUs);
@@ -120,6 +144,7 @@ void TimingGameApplet::update() {
 
     if (state == RESULT && (now - resultDisplayTime) > 3500) {
         state = IDLE;
+        WS2812Driver::clear();
     }
 }
 
@@ -144,15 +169,21 @@ void TimingGameApplet::draw() {
 void TimingGameApplet::cleanup() {
     state = IDLE;
     wasPressing = false;
+    WS2812Driver::clear();
+    SoundFX::stop();
 }
 
 void TimingGameApplet::onActionClick() {
     if (state == RESULT) {
         state = IDLE;
+        WS2812Driver::clear();
+        SoundFX::stop();
     }
 }
 
 void TimingGameApplet::onBothHeld() {
     state = IDLE;
     wasPressing = false;
+    WS2812Driver::clear();
+    SoundFX::stop();
 }

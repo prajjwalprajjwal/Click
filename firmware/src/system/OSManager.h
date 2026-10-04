@@ -28,6 +28,7 @@ private:
     uint32_t lightSleepTimeout = 20000;    // 20 seconds before light sleep
     uint32_t deepSleepTimeout = 45000;     // 45 seconds before deep sleep
     bool displayOn = true;
+    bool isDimmed = false;
 
 public:
     OSManager();
@@ -45,7 +46,7 @@ public:
     InputManager* getInputManager() { return &inputManager; }
     
     // Sleep/wake functions
-    void recordActivity();
+    bool recordActivity();
     void enterLightSleep();
     void wakeFromLightSleep();
     void enterDeepSleep();

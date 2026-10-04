@@ -2,6 +2,12 @@
 
 #include <Arduino.h>
 #include <Wire.h>
+#include "Display.h"
+#include "InputManager.h"
+#include "PinConfig.h"
+#include "WS2812.h"
+
+#if defined(ESP32)
 #include <driver/gpio.h>
 #include <driver/rtc_io.h>
 #include <driver/uart.h>
@@ -10,14 +16,20 @@
 #include <esp_bt.h>
 #include <esp_phy_init.h>
 #include <driver/adc.h>
-#include "Display.h"
-#include "InputManager.h"
 
 #ifndef UART_TX0_PIN
 #define UART_TX0_PIN   GPIO_NUM_1
 #endif
 #ifndef UART_RX0_PIN
 #define UART_RX0_PIN   GPIO_NUM_3
+#endif
+#elif defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
+#include <hardware/clocks.h>
+#include <hardware/pll.h>
+#include <hardware/xosc.h>
+#include <hardware/gpio.h>
+#include <hardware/sync.h>
+#include <pico/runtime_init.h>
 #endif
 
 class PowerManager {
@@ -26,6 +38,7 @@ public:
      * @brief Clear stuck I2C bus by sending 9 SCL clock pulses and generating STOP condition.
      */
     static void clearI2CBus(uint8_t sdaPin = I2C_SDA, uint8_t sclPin = I2C_SCL) {
+#if defined(ESP32)
         pinMode(sdaPin, INPUT_PULLUP);
         pinMode(sclPin, OUTPUT_OPEN_DRAIN);
         digitalWrite(sclPin, HIGH);
@@ -49,6 +62,31 @@ public:
         pinMode(sdaPin, INPUT_PULLUP);
         pinMode(sclPin, INPUT_PULLUP);
         delayMicroseconds(10);
+#else
+        pinMode(sdaPin, INPUT_PULLUP);
+        pinMode(sclPin, OUTPUT);
+        digitalWrite(sclPin, HIGH);
+        delayMicroseconds(10);
+
+        for (uint8_t i = 0; i < 9; i++) {
+            digitalWrite(sclPin, LOW);
+            delayMicroseconds(5);
+            digitalWrite(sclPin, HIGH);
+            delayMicroseconds(5);
+        }
+
+        pinMode(sdaPin, OUTPUT);
+        digitalWrite(sdaPin, LOW);
+        delayMicroseconds(5);
+        digitalWrite(sclPin, HIGH);
+        delayMicroseconds(5);
+        digitalWrite(sdaPin, HIGH);
+        delayMicroseconds(10);
+
+        pinMode(sdaPin, INPUT_PULLUP);
+        pinMode(sclPin, INPUT_PULLUP);
+        delayMicroseconds(10);
+#endif
     }
 
     /**
@@ -56,6 +94,7 @@ public:
      * hold control pins HIGH, disable RF/ADC, configure power domains, and arm wakeup triggers.
      */
     static void prepare_for_light_sleep() {
+#if defined(ESP32)
         // 1. Flush UART Console & isolate TX/RX to prevent back-feeding CH340
         Serial.flush();
         uart_wait_tx_idle_polling(UART_NUM_0);
@@ -72,7 +111,6 @@ public:
         gpio_hold_en(UART_RX0_PIN);
 
         // 2. Safely close I2C bus and keep SDA / SCL at logic HIGH (3.3V)
-        // Never drive SDA/SCL to 0V while display VCC is 3.3V to prevent state machine lockup!
         display.ssd1306_command(SSD1306_DISPLAYOFF);
         delay(10);
 
@@ -138,6 +176,22 @@ public:
         #if CONFIG_BT_ENABLED
         esp_bt_controller_disable();
         #endif
+#else
+        Serial.flush();
+        display.ssd1306_command(SSD1306_DISPLAYOFF);
+        delay(5);
+        CLICK_I2C.end();
+        pinMode(I2C_SDA, INPUT_PULLUP);
+        pinMode(I2C_SCL, INPUT_PULLUP);
+        pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+#if defined(WS2812_PIN) && (WS2812_PIN >= 0)
+        WS2812Driver::clearAndHaltForSleep();
+#endif
+#if defined(BUZZER_PIN) && (BUZZER_PIN >= 0)
+        pinMode(BUZZER_PIN, OUTPUT);
+        digitalWrite(BUZZER_PIN, LOW);
+#endif
+#endif
     }
 
     /**
@@ -145,6 +199,7 @@ public:
      * and restore UART & Wire.
      */
     static void restore_after_light_sleep() {
+#if defined(ESP32)
         // 1. Release ALL GPIO pad holds immediately
         gpio_hold_dis(UART_TX0_PIN);
         gpio_hold_dis(UART_RX0_PIN);
@@ -187,7 +242,36 @@ public:
 
         // 6. 9-Clock Cycle Bus Clear and Hardware I2C Re-Initialization
         clearI2CBus(I2C_SDA, I2C_SCL);
-        Wire.begin(I2C_SDA, I2C_SCL, 400000);
+        CLICK_I2C.begin(I2C_SDA, I2C_SCL, 400000);
+#else
+        if (OLED_RST_PIN >= 0) {
+            pinMode(OLED_RST_PIN, OUTPUT);
+            digitalWrite(OLED_RST_PIN, LOW);
+            delay(20);
+            digitalWrite(OLED_RST_PIN, HIGH);
+            delay(50);
+        } else {
+            delay(20);
+        }
+
+        pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+#if ACTION_BUTTON_PIN >= 0
+        pinMode(ACTION_BUTTON_PIN, INPUT_PULLUP);
+#endif
+
+        clearI2CBus(I2C_SDA, I2C_SCL);
+#if defined(ARDUINO_ARCH_RP2040)
+        CLICK_I2C.setSDA(I2C_SDA);
+        CLICK_I2C.setSCL(I2C_SCL);
+        CLICK_I2C.begin();
+#else
+        CLICK_I2C.begin(I2C_SDA, I2C_SCL);
+#endif
+        CLICK_I2C.setClock(400000);
+#if defined(WS2812_PIN) && (WS2812_PIN >= 0)
+        WS2812Driver::reinit();
+#endif
+#endif
     }
 
     /**
@@ -196,8 +280,40 @@ public:
     static void enter_light_sleep() {
         prepare_for_light_sleep();
 
+#if defined(ESP32)
         // Enter Light Sleep (Synchronous execution blocks here until wake event)
         esp_light_sleep_start();
+#elif defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
+        // Wait for button release if currently held
+        while (isModeButtonPressed()) {
+            delay(10);
+        }
+
+        // Configure hardware dormant wake on MODE button (GPIO 0, active LOW)
+        gpio_set_dormant_irq_enabled(MODE_BUTTON_PIN, GPIO_IRQ_LEVEL_LOW, true);
+
+        // Switch clk_ref and clk_sys to XOSC (12MHz) so PLLs can be shut down
+        clock_configure_undivided(clk_ref, CLOCKS_CLK_REF_CTRL_SRC_VALUE_XOSC_CLKSRC, 0, XOSC_HZ);
+        clock_configure_undivided(clk_sys, CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLK_REF, 0, XOSC_HZ);
+        clock_stop(clk_adc);
+        clock_stop(clk_usb);
+        pll_deinit(pll_sys);
+        pll_deinit(pll_usb);
+
+        // Enter hardware DORMANT state: crystal stops, chip halts, current drops to < 100µA
+        xosc_dormant();
+
+        // Woken up by keypress on MODE button!
+        gpio_acknowledge_irq(MODE_BUTTON_PIN, GPIO_IRQ_LEVEL_LOW);
+        gpio_set_dormant_irq_enabled(MODE_BUTTON_PIN, GPIO_IRQ_LEVEL_LOW, false);
+
+        // Restore clocks (XOSC crystal, system PLL, and peripheral clocks)
+        runtime_init_clocks();
+#else
+        while (!isModeButtonPressed() && !isActionButtonPressed()) {
+            delay(10);
+        }
+#endif
 
         restore_after_light_sleep();
     }

@@ -53,6 +53,7 @@ private:
 
     float pipeX[NUM_PIPES];
     int   pipeGapY[NUM_PIPES];
+    bool  pipePassed[NUM_PIPES] = {false, false};
 
     // Non-blocking timer (~40 FPS execution loop)
     unsigned long lastFrameTime = 0;
