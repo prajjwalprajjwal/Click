@@ -33,7 +33,36 @@
 
 ## Release History & Changes
 
-### [v0.1.1] - 2026-09-13
+### [v1.0.4] - 2026-10-05
+
+#### Added & Improved
+- **Raspberry Pi RP2354A Production Support (`env:rp2354`)**:
+  - Full hardware and firmware integration for the Click 4 PCBA running dual Cortex-M33 at 48MHz with 4MB embedded QSPI Flash.
+  - Native USB 2.0 Full Speed support for WebSerial communications and `picotool` flashing.
+- **Micro-Power Sleep Mode (< 0.8mA Standby)**:
+  - Implemented 12MHz crystal down-clocking with ARM Cortex-M33 `__wfi()` sleep loop in `PowerManager.h`.
+  - **Universal Button Wakeup**: Configured sleep polling so **either button** (`MODE` on GP0 or `ACTION` on `BOOTSEL`/`QSPI_SS`) immediately wakes the device from sleep with zero latency.
+  - Returns directly to Sisyphus on wake.
+- **Hardware Charging Sense Fix (`STAT` on GP1)**:
+  - Replaced faulty `usb_hw->sie_status` software detection (which is overridden to 1 permanently by the TinyUSB driver in silicon) with true hardware ETA6003 `STAT` pin sensing on GP1 with 10kΩ pullup `R9`. Unplugging USB cable is detected instantly.
+- **Calibrated Non-Linear Li-Ion / LiPo SoC Curve**:
+  - Replaced naive linear voltage mapping with an authentic piecewise Lithium-Polymer plateau curve in `battery.hpp`.
+  - Added full-charge 100% cushion down to 4.08V to eliminate rapid post-unplug voltage drops.
+  - Added 2-minute post-unplug surface charge relaxation freeze and 35-second-per-1% slew rate limiter to prevent sudden optical drops.
+- **Reliable Battery Voltage Formatting (`x.xxV`)**:
+  - Implemented integer decomposition in `SettingsApplet.h` to bypass `newlib-nano`'s default exclusion of `%f` floating-point formatters.
+  - Added `-Wl,-u,_printf_float` linker flag in `platformio.ini`.
+- **Intelligent Charging LED State Machine**:
+  - Continuous, smooth multicolor breathing pattern while plugged into USB.
+  - Applet switches via MODE button do not interrupt or flicker the breathing LED.
+  - In-game transient event cues (Just 10 yellow stop flash, Flappy Bird red game-over flash, Sisyphus milestone celebration) temporarily display over the breathing pattern and automatically return to charging breathe when complete.
+- **Ghost LED & Quiescent Leakage Elimination**:
+  - Added `WS2812Driver::clearAndHaltForSleep()` which double-latches zeros, switches pin multiplexer from PIO to SIO, drives GP11 LOW (0V), and enables internal pull-down.
+  - Disabled PCF8563 RTC CLKOUT continuous 32.768kHz oscillation.
+  - Disabled digital input buffers on all unused Bank 0 GPIOs.
+- **Documentation Master Release**:
+  - Created [`docs/power_management_and_battery_architecture.md`](docs/power_management_and_battery_architecture.md): Exhaustive engineering deep-dive on micro-power optimization, battery fuel gauging, and silicon-level gotchas.
+  - Updated [`docs/hardware_and_pinouts.md`](docs/hardware_and_pinouts.md) with authoritative RP2354A pin mapping and power architecture.
 
 #### Added
 - **Edge Serverless Leaderboard Backend (`server/`)**:

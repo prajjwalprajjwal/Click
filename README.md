@@ -76,25 +76,25 @@ Click/
 Detailed technical schematics and electrical specifications can be found in [`docs/hardware_and_pinouts.md`](docs/hardware_and_pinouts.md).
 
 > [!NOTE]
-> **Active Hardware & Production Status**:
-> - **Active Prototype (Click 1)**: Up until now, boards have been fabricated manually. The **ESP32-WROOM-32E** was chosen because it is simpler and matches local prototyping resources. **All current firmware, active code, pin assignments, and WebSerial flashing run on this physical Click 1 board.** Design files are located in `hardware/PCB/Click1/`.
-> - **Upcoming Production Hardware (Click 4 - V0.0.1)**: The design for the **Click 4** PCB is complete and prepared for turnkey assembly (PCBA) via **JLCPCB for the V0.0.1 production run**. It features the RP2354A MCU. Firmware adaptations for the RP2354A will be developed once the manufactured boards are in hand. Design files are in `hardware/PCB/Click4/`.
+> **Active Hardware & Production Platforms**:
+> - **Active Production Platform (Click 4 - RP2354A)**: Turnkey PCBA featuring the **Raspberry Pi RP2354A** MCU (Dual Cortex-M33, 512KB RAM, 4MB Flash). Features high-precision calibrated Li-Ion battery telemetry, 12MHz active sleep with $< 1\text{ mA}$ power consumption, dual SK6812 RGB LEDs, piezo sound, and PCF8563 RTC. Active default build environment: `env:rp2354`. Design files in `hardware/PCB/Click4/`.
+> - **Legacy Prototype (Click 1 - ESP32-WROOM-32E)**: Hand-assembled prototype board maintained for backward compatibility under `env:esp32doit-devkit-v1`. Design files in `hardware/PCB/Click1/`.
+> - **Power & Battery Deep-Dive**: For full architectural documentation on power management, battery discharge modeling, and silicon gotchas, read [**`docs/power_management_and_battery_architecture.md`**](docs/power_management_and_battery_architecture.md).
 
-### Active Prototyping Hardware Specs (Click 1: ESP32-WROOM-32E)
+### Active Production Hardware Specs (Click 4: RP2354A)
+- **Microcontroller**: Raspberry Pi RP2354A (Dual Cortex-M33 @ 48MHz, 512KB SRAM, 4MB on-chip Flash)
+- **Display & RTC I2C Bus**: `CLICK_I2C = Wire1` (SDA = GP2, SCL = GP3, 400kHz Fast I2C)
+- **User Inputs**: MODE = GP0 (Active LOW), ACTION = `BOOTSEL` / `QSPI_SS` (Active LOW)
+- **Power & Battery**: STAT = GP1 (Active LOW charging from ETA6003 with 10k pullup), BAT_ADC = GP29 (ADC3 via 100k/100k divider)
+- **Audio & Visual**: Buzzer = GP27 (via NPN BJT), RGB LEDs = GP11 (2× SK6812 DIN via PIO)
+- **Power Management**: 12MHz direct XOSC sleep with ARM `__wfi()` ($< 0.8\text{ mA}$), woken by **any button**
+
+### Legacy Prototype Specs (Click 1: ESP32-WROOM-32E)
 - **Microcontroller**: ESP32-WROOM-32E (Xtensa Dual-Core 240MHz, 4MB Flash)
-- **Display I2C**: SDA = GPIO 21, SCL = GPIO 22 (400kHz Fast I2C; *GPIO 36 is input-only*)
+- **Display I2C**: SDA = GPIO 21, SCL = GPIO 22 (400kHz Fast I2C)
 - **User Inputs**: MODE = GPIO 14 (RTC ext0 wake), ACTION = GPIO 32 (RTC ext1 wake)
-- **Power & Battery**: STAT = GPIO 33 (Active LOW from ETA IC), BAT_ADC = GPIO 35 (100k/100k divider)
-- **Serial & Power Isolation**: UART TX0 = GPIO 1, UART RX0 = GPIO 3 (isolated with pad holds in sleep)
+- **Power & Battery**: STAT = GPIO 33, BAT_ADC = GPIO 35 (100k/100k divider)
 - **Sleep States**: Light sleep at 20s (OLED off, I2C pullups held), Deep sleep at 45s (RTC wakeup)
-
-### Upcoming Hardware Pinout & Specs (V4 / Click 4 PCB)
-- **Microcontroller**: RP2354A (QFN-56 package, 30 GPIOs: GP0-GP29)
-- **Display I2C**: SDA = GP20, SCL = GP21
-- **User Inputs**: MODE = GP14, ACTION = GP32 (or assigned GP)
-- **Power & Battery**: STAT = GP3 (or assigned GP), BAT_ADC = GP29 (ADC3)
-- **Audio & LEDs**: Buzzer = GP27, APA102 Data = GP11, APA102 Clock = GP12
-- **Voltage Regulator**: AP2112K-3.3 with EN tied to physical slide switch
 
 ---
 
@@ -107,20 +107,21 @@ The firmware features an event-driven `OSManager` hosting four built-in applets 
 * **Dynamics**:
   * **Boulder Physics**: Smooth rotation and position tracking based on player clicks.
   * **Stamina & Fatigue**: Continuous clicking builds fatigue; stopping causes Sisyphus to catch his breath.
-  * **Full Integer Notation**: No abbreviated suffix truncation (e.g. `10,000+` and higher counts display fully).
-  * **Milestone Celebrations**: Overlay banners trigger on reaching milestone tiers (1, 5, 10, 50, 100, 1000, etc.).
-  * **Persistence**: Dual-key NVS backup storage (`nvs_a` / `nvs_b`) with checksum verification and wear-leveling.
+  * **Auditory Feedback**: 3 short beeps when the boulder rolls back downhill, with a gentle chime upon hitting bottom. Silent on startup into Sisyphus.
+  * **Milestone Celebrations**: Overlay banners and RGB celebration pulses trigger on reaching milestone tiers.
+  * **Persistence**: Dual-key NVS backup storage with checksum verification and wear-leveling.
 
 ### 2. Just Ten
 * Precision stopwatch game challenging players to hold and release the button at exactly **10.0000 seconds**.
-* Displays exact millisecond accuracy and tracks personal records.
+* Displays exact millisecond accuracy, tracks personal records, and flashes yellowish LEDs upon stopping.
 
 ### 3. Flappy Bird
-* Real-time side-scrolling obstacle game featuring obstacle collision detection, velocity physics, and persistent high scores.
+* Real-time side-scrolling obstacle game featuring obstacle collision detection, velocity physics, and persistent high scores with red LED flash on game over.
 
 ### 4. Settings & System Applet
 * Accessible by holding the **MODE** button.
-* Displays live battery percentage (quantized in 5% steps with hysteresis), instantaneous battery voltage, active charging status (`CHARGING` / `BATTERY`), unique 48-bit eFuse MAC ID, and firmware build version.
+* **Page 0 (SYSTEM)**: Shows live battery state (`[CHARGING]`, `[BATTERY]`, `[CHARGED]`), high-precision numerical voltage (`x.xxV`), and a graphical charge bar.
+* **Page 1 (SYSTEM INFO)**: Center-aligned hardware telemetry displaying Firmware version, unique Device ID, and MCU specifications.
 
 ### 5. Snowfall Screensaver
 * Ambient particle simulation that activates automatically when the device remains idle prior to entering sleep.
@@ -132,10 +133,11 @@ The firmware features an event-driven `OSManager` hosting four built-in applets 
 | Action | Control | Description |
 |:---|:---|:---|
 | **Cycle Applets** | `MODE` Button (Short Press) | Switch between **Clicker**, **Just Ten**, and **Flappy Bird**. |
-| **Settings Menu** | `MODE` Button (Hold > 1s) | Toggle the **Settings & System Status** screen. |
+| **Settings Menu** | `MODE` Button (Hold > 1s) | Toggle the **SYSTEM** status and telemetry screen. |
+| **Toggle System Info** | `ACTION` Button (in Settings) | Toggle between Battery Telemetry and System Info pages. |
 | **Primary Game Action** | `ACTION` Button (Short Press) | Push boulder / Jump bird / Start & Stop 10s timer. |
 | **Reset Game Score** | `ACTION` Button (Hold > 3s) | Reset the score/counter of the currently active applet. |
-| **Wake from Sleep** | Either Button (`MODE` or `ACTION`) | Instantly wakes the device from Light Sleep or Deep Sleep. |
+| **Wake from Sleep** | **Either Button** (`MODE` or `ACTION`) | Instantly wakes the device from low-power sleep back to Sisyphus. |
 | **Factory Master Reset** | **Both Buttons Held** (> 4s) | Erase all NVS partitions, resetting lifetime clicks and milestones. |
 
 ---
