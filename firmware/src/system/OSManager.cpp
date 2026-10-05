@@ -138,13 +138,33 @@ void OSManager::wakeFromLightSleep() {
     sleepState = AWAKE;
     displayOn = true;
     isDimmed = false;
-    
+
+    // Always wake up directly to the Sisyphus game screen (applet index 0)
+    if (appletCount > 0 && currentAppletIndex != 0) {
+        if (currentApplet) {
+            currentApplet->cleanup();
+        }
+        currentAppletIndex = 0;
+        currentApplet = applets[0];
+        if (currentApplet) {
+            currentApplet->init();
+        }
+    }
+
     // Explicitly re-initialize display driver instance post-wake
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C, true, true);
     display.setRotation(2);
     display.ssd1306_command(SSD1306_DISPLAYON);
     display.ssd1306_command(SSD1306_SETCONTRAST);
     display.ssd1306_command(0x3F);
+
+    // Solutions 43, 44, 45: Preserve low-power controller configuration across wake
+    display.ssd1306_command(0xD5);
+    display.ssd1306_command(0x80);
+    display.ssd1306_command(0xD9);
+    display.ssd1306_command(0x22);
+    display.ssd1306_command(0xDB);
+    display.ssd1306_command(0x20);
 
     // Re-initialize NeoPixel PIO engine after wake
     WS2812Driver::reinit();

@@ -56,9 +56,9 @@ void FlappyBirdApplet::handleGameOver() {
         prefs.begin("click_stats", false);
         prefs.putUInt("flappy_hi", highScore);
         prefs.end();
-        // High score celebratory fanfare and rainbow dance
+        // High score celebratory fanfare and brief rainbow dance (0.5s)
         SoundFX::playCelebrationFanfare();
-        WS2812Driver::startCelebration(2500);
+        WS2812Driver::startCelebration(500);
     } else {
         // Crash / game over sound and red alert flash for game over
         SoundFX::playGameOver();

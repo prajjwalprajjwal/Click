@@ -43,6 +43,14 @@ public:
 #endif
     }
 
+    static bool isPlaying() {
+#if defined(BUZZER_PIN) && BUZZER_PIN >= 0
+        return seqActive || isPlayingTone;
+#else
+        return false;
+#endif
+    }
+
     static void playSequence(const SoundNote* notes, uint8_t count) {
 #if defined(BUZZER_PIN) && BUZZER_PIN >= 0
         if (!notes || count == 0) return;

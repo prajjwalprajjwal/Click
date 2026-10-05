@@ -1,6 +1,13 @@
 #pragma once
 #include <Arduino.h>
 #include "PinConfig.h"
+#include "SoundFX.h"
+#include "WS2812.h"
+
+#if defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
+#include <hardware/structs/usb.h>
+#include <hardware/regs/usb.h>
+#endif
 
 class BatteryManager {
 private:
@@ -48,29 +55,27 @@ private:
 
 public:
     static int calculatePercentageFromVoltage(float v, bool charging) {
-        // While charging in constant-current phase, there is a small IR drop (~30mV).
-        // In constant-voltage phase (approaching 4.20V), current tapers down to ~10mA,
-        // so IR drop drops to 0. We taper any IR compensation to 0 at 4.15V.
         float effectiveV = v;
         if (charging) {
+            // While charging, terminal voltage is elevated by ~30-50mV due to charging current
             if (v < 4.00f) {
-                effectiveV = v - 0.03f;
+                effectiveV = v - 0.04f;
             } else if (v < 4.15f) {
-                effectiveV = v - 0.03f * (1.0f - (v - 4.00f) / 0.15f);
+                effectiveV = v - 0.04f * (1.0f - (v - 4.00f) / 0.15f);
             }
         }
 
-        // Calibrated non-linear Li-Ion SoC curve:
-        // Fully charged cell rests at 4.15V - 4.20V
-        if (effectiveV >= 4.15f) return 100;
-        if (effectiveV >= 4.08f) return 90 + static_cast<int>((effectiveV - 4.08f) / (4.15f - 4.08f) * 10.0f);
-        if (effectiveV >= 3.98f) return 76 + static_cast<int>((effectiveV - 3.98f) / (4.08f - 3.98f) * 14.0f);
-        if (effectiveV >= 3.88f) return 58 + static_cast<int>((effectiveV - 3.88f) / (3.98f - 3.88f) * 18.0f);
-        if (effectiveV >= 3.80f) return 42 + static_cast<int>((effectiveV - 3.80f) / (3.88f - 3.80f) * 16.0f);
-        if (effectiveV >= 3.73f) return 26 + static_cast<int>((effectiveV - 3.73f) / (3.80f - 3.73f) * 16.0f);
-        if (effectiveV >= 3.65f) return 14 + static_cast<int>((effectiveV - 3.65f) / (3.73f - 3.65f) * 12.0f);
-        if (effectiveV >= 3.52f) return 5 + static_cast<int>((effectiveV - 3.52f) / (3.65f - 3.52f) * 9.0f);
-        if (effectiveV >= 3.35f) return static_cast<int>((effectiveV - 3.35f) / (3.52f - 3.35f) * 5.0f);
+        // Realistic non-linear Li-Ion / LiPo SoC curve matching consumer fuel gauges:
+        // Fully charged resting / active cell stays at 100% down to 4.08V.
+        // The vast capacity sits between 3.70V and 4.00V, avoiding sudden cliff drops.
+        if (effectiveV >= 4.08f) return 100;
+        if (effectiveV >= 4.00f) return 90 + static_cast<int>((effectiveV - 4.00f) / (4.08f - 4.00f) * 10.0f);
+        if (effectiveV >= 3.90f) return 75 + static_cast<int>((effectiveV - 3.90f) / (4.00f - 3.90f) * 15.0f);
+        if (effectiveV >= 3.80f) return 52 + static_cast<int>((effectiveV - 3.80f) / (3.90f - 3.80f) * 23.0f);
+        if (effectiveV >= 3.72f) return 30 + static_cast<int>((effectiveV - 3.72f) / (3.80f - 3.72f) * 22.0f);
+        if (effectiveV >= 3.62f) return 12 + static_cast<int>((effectiveV - 3.62f) / (3.72f - 3.62f) * 18.0f);
+        if (effectiveV >= 3.48f) return 3 + static_cast<int>((effectiveV - 3.48f) / (3.62f - 3.48f) * 9.0f);
+        if (effectiveV >= 3.35f) return static_cast<int>((effectiveV - 3.35f) / (3.48f - 3.35f) * 3.0f);
         return 0;
     }
 
@@ -96,7 +101,7 @@ public:
 
     static bool isCharging() {
 #if defined(CHARGER_STAT_PIN) && (CHARGER_STAT_PIN >= 0)
-        // ETA6003 STAT pin actively pulls LOW during active charge cycle
+        // ETA6003 STAT pin (GP1): actively pulls LOW during active charging; pulled HIGH via R9 when unplugged
         return digitalRead(CHARGER_STAT_PIN) == LOW;
 #else
         return false;
@@ -109,6 +114,12 @@ public:
         }
 
         uint32_t now = millis();
+
+        // Solutions 6 & 27: Freeze ADC sampling during audio or LED pulses to prevent measuring IR battery droop!
+        if (SoundFX::isPlaying() || WS2812Driver::isBusy()) {
+            return filteredVoltage;
+        }
+
         // Sample ADC periodically (every 1.5 seconds) to avoid burning power & continuous jitter
         if (now - lastSampleTime >= 1500 || filteredVoltage <= 0.5f) {
             lastSampleTime = now;
@@ -143,9 +154,8 @@ public:
         if (rawPct > 100) rawPct = 100;
         if (rawPct < 0) rawPct = 0;
 
-        // If charging just completed (STAT pin went HIGH, but battery is >= 4.14V):
-        // Treat as fully charged 100%!
-        if (!charging && v >= 4.14f) {
+        // If charging just completed or disconnected with full voltage (>= 4.08V):
+        if (!charging && v >= 4.08f) {
             rawPct = 100;
         }
 
@@ -170,9 +180,9 @@ public:
         } else {
             // BATTERY DISCHARGE MODE:
             // Post-unplug surface charge relaxation:
-            // LiPo terminal voltage relaxes 30-80mV during the first 60 seconds after unplugging.
+            // LiPo terminal voltage relaxes 30-80mV during the first 2 minutes after unplugging.
             // Hold the percentage steady to prevent optical drops.
-            bool inUnplugRelaxation = (unplugTime > 0 && (now - unplugTime < 60000));
+            bool inUnplugRelaxation = (unplugTime > 0 && (now - unplugTime < 120000));
 
             if (inUnplugRelaxation) {
                 // Do not allow decrease during post-unplug relaxation
@@ -181,8 +191,8 @@ public:
                 displayedPercentage = rawPct;
                 lastPctUpdateTime = now;
             } else if (rawPct < displayedPercentage) {
-                // Smooth discharge rate: at most 1% drop every 25 seconds
-                if (now - lastPctUpdateTime >= 25000) {
+                // Smooth discharge rate: at most 1% drop every 35 seconds
+                if (now - lastPctUpdateTime >= 35000) {
                     displayedPercentage--;
                     lastPctUpdateTime = now;
                 }

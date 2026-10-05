@@ -44,7 +44,7 @@
 #endif
 
 #ifndef CHARGER_STAT_PIN
-#define CHARGER_STAT_PIN    1   // GP1: ETA6003 STAT pin (Active LOW when charging)
+#define CHARGER_STAT_PIN    1   // GP1: ETA6003 STAT pin (Active LOW when charging, pulled up to 3.3V via R9)
 #endif
 
 #ifndef WS2812_PIN

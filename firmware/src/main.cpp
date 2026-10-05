@@ -33,10 +33,14 @@ FlappyBirdApplet flappyBirdApplet;
 
 void onModeButtonClick() {
     if (osManager.recordActivity()) {
-        SoundFX::playClick();
-        return; // Screen was off; first click wakes the screen
+        return; // Screen was asleep/off; first click wakes the screen silently
     }
-    SoundFX::playClick();
+    // Requirement 2: Do NOT beep just before Sisyphus game!
+    uint8_t curIdx = osManager.getCurrentAppletIndex();
+    uint8_t nextIdx = (curIdx + 1) % 4; // 0 is Sisyphus
+    if (nextIdx != 0) {
+        SoundFX::playClick(); // Only click when switching into other applets!
+    }
     Applet* applet = osManager.getCurrentApplet();
     if (applet == &homeApplet) {
         osManager.switchToApplet(0); // Exit screensaver back to Clicker
@@ -151,12 +155,26 @@ void setup() {
     display.ssd1306_command(SSD1306_SETCONTRAST);
     display.ssd1306_command(0x3F); // High-contrast crisp white without burning 20mA
 
+    // Solutions 43, 44, 45: SSD1306 Low-Power Controller Configuration
+    display.ssd1306_command(0xD5); // Set Display Clock Divide Ratio / Oscillator Frequency
+    display.ssd1306_command(0x80); // Optimal lower-power oscillator frequency
+    display.ssd1306_command(0xD9); // Set Pre-charge Period
+    display.ssd1306_command(0x22); // Phase 1: 2 DCLKs, Phase 2: 2 DCLKs (drops charge pump load)
+    display.ssd1306_command(0xDB); // Set VCOMH Deselect Level
+    display.ssd1306_command(0x20); // 0.77 x Vcc (reduces drive current)
+
+    // Solution 73: Disable PCF8563 RTC CLKOUT pin to eliminate continuous 32.768kHz high-frequency switching
+    CLICK_I2C.beginTransmission(0x51);
+    CLICK_I2C.write(0x0D); // CLKOUT_control register
+    CLICK_I2C.write(0x00); // 0 = Disable CLKOUT (tri-state pin, 0µA current)
+    CLICK_I2C.endTransmission();
+
     // Initialize RGB LEDs, Sound Buzzer, and Battery Monitoring
     WS2812Driver::init();
     SoundFX::init();
     BatteryManager::init();
-    SoundFX::playStartup();
-    WS2812Driver::flash(0, 180, 255, 250);
+    SoundFX::playStartup(); // Requirement 2: Startup chime on boot
+    WS2812Driver::flash(0, 180, 255, 500);
 
     // Set 400kHz Fast I2C mode for smooth SSD1306 refresh
     CLICK_I2C.setClock(400000);
@@ -216,11 +234,13 @@ void setup() {
 
     display.display();
 
-    // Bootscreen delay while continuously servicing serial telemetry
-    for (int i = 0; i < 100; i++) {
+    // Bootscreen delay (500ms): service serial telemetry & LED timing, then shut LED off cleanly
+    for (int i = 0; i < 50; i++) {
         handleSerialTelemetry();
+        WS2812Driver::update();
         delay(10);
     }
+    WS2812Driver::clear();
 
     // Register playable main applets (index 0 is active on boot)
     osManager.registerApplet(&counterApplet);     // index 0: Clicker (Default on boot)
@@ -323,17 +343,16 @@ static void handleSerialTelemetry() {
 void loop() {
     uint32_t frameStart = millis();
 
-    // During charging, maintain a breathing LED of multi-colors
+    // During charging, maintain an uninterrupted breathing LED of multi-colors,
+    // but allow game effects (flashes, celebrations) to temporarily display
     static bool wasCharging = false;
     bool charging = BatteryManager::isCharging();
     if (charging) {
-        if (!wasCharging || !WS2812Driver::isBusy()) {
-            if (!WS2812Driver::isChargingBreatheActive()) {
-                WS2812Driver::startChargingBreathe();
-            }
+        if (!WS2812Driver::isChargingBreatheActive() && !WS2812Driver::isBusy()) {
+            WS2812Driver::startChargingBreathe();
         }
     } else if (wasCharging) {
-        WS2812Driver::clear();
+        WS2812Driver::stopChargingBreathe();
     }
     wasCharging = charging;
 

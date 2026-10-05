@@ -204,9 +204,10 @@ public:
         digitalWrite(BUZZER_PIN, LOW);
 #endif
 
-        // 4. Power down ADC and disable digital input buffer on battery sense pin
+        // 4. Power down ADC core analog converter and disable digital input buffer on battery sense pin
 #if defined(BATTERY_ADC_PIN) && (BATTERY_ADC_PIN >= 0)
         adc_run(false);
+        hw_clear_bits(&adc_hw->cs, ADC_CS_EN_BITS);
         gpio_set_input_enabled(BATTERY_ADC_PIN, false);
         gpio_disable_pulls(BATTERY_ADC_PIN);
 #endif
@@ -291,6 +292,8 @@ public:
         pinMode(CHARGER_STAT_PIN, INPUT_PULLUP);
 #endif
 #if defined(BATTERY_ADC_PIN) && (BATTERY_ADC_PIN >= 0)
+        hw_set_bits(&adc_hw->cs, ADC_CS_EN_BITS);
+        gpio_set_input_enabled(BATTERY_ADC_PIN, true);
         pinMode(BATTERY_ADC_PIN, INPUT);
 #endif
 #if ACTION_BUTTON_PIN >= 0
@@ -322,39 +325,25 @@ public:
         // Enter Light Sleep (Synchronous execution blocks here until wake event)
         esp_light_sleep_start();
 #elif defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
-        // Wait for button release if currently held
-        while (isModeButtonPressed()) {
+        // Wait for both buttons to be released
+        while (isModeButtonPressed() || isActionButtonPressed()) {
             delay(10);
         }
 
-        // Configure hardware dormant wake on MODE button (GPIO 0, active LOW)
-        gpio_set_input_enabled(MODE_BUTTON_PIN, true);
-        gpio_set_dormant_irq_enabled(MODE_BUTTON_PIN, GPIO_IRQ_LEVEL_LOW, true);
+        // Switch clk_sys down to direct XOSC 12MHz for ultra-low power consumption (< 1mA)
+        set_sys_clock_khz(12000, false);
 
-        // Switch clk_ref and clk_sys to XOSC (12MHz) so PLLs can be shut down
-        clock_configure_undivided(clk_ref, CLOCKS_CLK_REF_CTRL_SRC_VALUE_XOSC_CLKSRC, 0, XOSC_HZ);
-        clock_configure_undivided(clk_sys, CLOCKS_CLK_SYS_CTRL_SRC_VALUE_CLK_REF, 0, XOSC_HZ);
-        clock_stop(clk_adc);
-        clock_stop(clk_usb);
-        pll_deinit(pll_sys);
-        pll_deinit(pll_usb);
+        // Requirement 1: Any button (MODE or ACTION) wakes the device from sleep!
+        while (!isModeButtonPressed() && !isActionButtonPressed()) {
+            delay(20); // Invokes ARM Cortex-M33 __wfi()
+        }
 
-        // Disable ring oscillator (ROSC) to eliminate background oscillator draw
-        rosc_hw->ctrl = (ROSC_CTRL_ENABLE_VALUE_DISABLE << ROSC_CTRL_ENABLE_LSB);
+        // Wait for button release on wake so it doesn't immediately click in the applet
+        while (isModeButtonPressed() || isActionButtonPressed()) {
+            delay(10);
+        }
 
-        // Enable Cortex-M33 deep sleep power gating (SCR.SLEEPDEEP)
-        scb_hw->scr |= (1u << 2);
-
-        // Enter hardware DORMANT state: crystal stops, all internal clocks halt, current drops to < 100µA
-        xosc_dormant();
-
-        // Woken up by keypress on MODE button!
-        gpio_acknowledge_irq(MODE_BUTTON_PIN, GPIO_IRQ_LEVEL_LOW);
-        gpio_set_dormant_irq_enabled(MODE_BUTTON_PIN, GPIO_IRQ_LEVEL_LOW, false);
-
-        // Restart ring oscillator and restore system clocks
-        rosc_hw->ctrl = (ROSC_CTRL_ENABLE_VALUE_ENABLE << ROSC_CTRL_ENABLE_LSB);
-        runtime_init_clocks();
+        // Restore active system clock to 48MHz
         set_sys_clock_khz(48000, false);
 #else
         while (!isModeButtonPressed() && !isActionButtonPressed()) {

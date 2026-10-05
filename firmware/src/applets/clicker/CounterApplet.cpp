@@ -108,9 +108,9 @@ void CounterApplet::handleClick() {
   if (unlocks != persistence.getHomeUnlockFlags()) {
     persistence.setHomeUnlockFlags(unlocks);
     homeApplet.applyUnlockState(unlocks);
-    WS2812Driver::startCelebration(2500); // Big rainbow party on milestone unlock!
+    WS2812Driver::startCelebration(500); // Brief rainbow pulse on milestone unlock!
   } else if (lifetime > 0 && (lifetime % 50 == 0)) {
-    WS2812Driver::startCelebration(1400); // Mini milestone celebration every 50 clicks!
+    WS2812Driver::startCelebration(500); // Brief rainbow pulse every 50 clicks!
   }
 
   // While rolling backward, register the first click to hold the rolling position at that step for 1 second

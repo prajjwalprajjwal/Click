@@ -119,13 +119,13 @@ void TimingGameApplet::update() {
         bool within5Percent = (diff <= 500000LL);
 
         if (within5Percent) {
-            // Victory celebration fanfare and dazzling dual-LED rainbow party!
+            // Victory celebration fanfare and dual-LED rainbow party (brief 0.5s burst)
             SoundFX::playCelebrationFanfare();
-            WS2812Driver::startCelebration(3500);
+            WS2812Driver::startCelebration(500);
         } else {
-            // Action button released completion sound and warm amber flash
+            // Action button released completion sound and warm amber flash (brief 0.5s burst)
             SoundFX::playJustTenRelease();
-            WS2812Driver::flash(255, 120, 0, 1000);
+            WS2812Driver::flash(255, 120, 0, 500);
         }
 
         if (holdDurationUs > 0) {

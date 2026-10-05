@@ -46,6 +46,14 @@ public:
 #endif
     }
 
+    static inline bool isChargingHardware() {
+#if defined(CHARGER_STAT_PIN) && (CHARGER_STAT_PIN >= 0)
+        return digitalRead(CHARGER_STAT_PIN) == LOW;
+#else
+        return false;
+#endif
+    }
+
     static void setPixel(uint8_t index, uint8_t r, uint8_t g, uint8_t b) {
 #if defined(WS2812_PIN) && (WS2812_PIN >= 0)
         if (!initialized || index >= NUM_LEDS) return;
@@ -81,6 +89,17 @@ public:
     static void clear() {
 #if defined(WS2812_PIN) && (WS2812_PIN >= 0)
         if (!initialized) return;
+
+        // While charging:
+        // 1. If currently in charging breathe, DO NOT touch or clear the LEDs (keeps breathe smooth and uninterrupted across app switches!)
+        // 2. If a game effect (like flash or celebration) just finished and called clear(), seamlessly restore charging breathe!
+        if (isChargingHardware()) {
+            if (currentEffect != LedEffect::CHARGING_BREATHE) {
+                currentEffect = LedEffect::CHARGING_BREATHE;
+            }
+            return;
+        }
+
         pixels.clear();
         pixels.show();
         currentEffect = LedEffect::NONE;
@@ -129,7 +148,7 @@ public:
         }
     }
 
-    // Temporary non-blocking color flash
+    // Temporary non-blocking color flash (e.g. game over or game win)
     static void flash(uint8_t r, uint8_t g, uint8_t b, uint16_t durationMs) {
 #if defined(WS2812_PIN) && (WS2812_PIN >= 0)
         if (!initialized) return;
@@ -178,7 +197,18 @@ public:
     static void startChargingBreathe() {
 #if defined(WS2812_PIN) && (WS2812_PIN >= 0)
         if (!initialized) return;
-        currentEffect = LedEffect::CHARGING_BREATHE;
+        if (currentEffect != LedEffect::CHARGING_BREATHE) {
+            currentEffect = LedEffect::CHARGING_BREATHE;
+        }
+#endif
+    }
+
+    static void stopChargingBreathe() {
+#if defined(WS2812_PIN) && (WS2812_PIN >= 0)
+        if (!initialized) return;
+        currentEffect = LedEffect::NONE;
+        pixels.clear();
+        pixels.show();
 #endif
     }
 
