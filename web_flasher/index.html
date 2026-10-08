@@ -5,7 +5,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Click Firmware Flasher</title>
-  <meta name="description" content="Official web installation utility for Clicker keyring hardware.">
+  <meta name="description" content="Browser firmware installer for Clicker ESP32 and RP2350 devices.">
 
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -14,6 +14,7 @@
     rel="stylesheet">
 
   <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="rp2350-flash.css">
 
   <!-- ESP32 Turbo Flash Engine Hook (PlatformIO 460,800 Baud Rate) -->
   <script>
@@ -68,7 +69,7 @@
         <span>Official Web Installer</span>
       </div>
       <h1 class="title">Click Firmware Flasher</h1>
-      <p class="subtitle">....</p>
+      <p class="subtitle">Firmware tools for Clicker ESP32 and RP2350 devices.</p>
     </header>
 
     <!-- Main Grid -->
@@ -83,7 +84,7 @@
               </svg>
               <span>Firmware Installation</span>
             </h2>
-            <span class="card-tag">Web Serial Direct</span>
+            <span class="card-tag">ESP32 Web Serial</span>
           </div>
 
           <!-- Browser Status -->
@@ -245,6 +246,41 @@
         </div>
       </aside>
     </main>
+
+    <section class="rp2350-flash-panel" aria-labelledby="rp2350-flash-title">
+      <div class="rp2350-flash-copy">
+        <h2 class="rp2350-flash-title" id="rp2350-flash-title">RP2350 UF2 Installer</h2>
+        <p>Flash the current Click firmware through the RP2350 BOOTSEL drive. This is separate from the ESP32 serial installer above.</p>
+        <ol class="rp2350-flash-steps">
+          <li>Disconnect USB, hold ACTION/BOOTSEL, then reconnect to expose the boot drive.</li>
+          <li>Select that drive when prompted. The installer checks its RP2350 identity before writing.</li>
+          <li>The board reboots after the UF2 is copied.</li>
+        </ol>
+        <p class="rp2350-flash-warning"><strong>Data note:</strong> UF2 installs can replace locally stored settings. Back up important device data first.</p>
+      </div>
+      <div class="rp2350-flash-controls">
+        <button class="rp2350-flash-button" id="rp2350-flash-button" type="button" data-firmware-url="firmware.uf2">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M12 3v12"></path><path d="m7 10 5 5 5-5"></path><path d="M5 21h14"></path>
+          </svg>
+          <span>Choose drive & flash RP2350</span>
+        </button>
+        <p class="rp2350-flash-status" id="rp2350-flash-status" role="status" aria-live="polite">Direct flashing requires desktop Chrome or Edge on HTTPS or localhost.</p>
+        <a class="rp2350-download-link" href="firmware.uf2" download="click-rp2350.uf2">Download UF2 for manual copy</a>
+        <details class="rp2350-picotool">
+          <summary>Direct USB update with Picotool</summary>
+          <p>After firmware with Picotool USB support is installed once, <code>picotool -f</code> resets into ROM PICOBOOT, flashes, and reboots without mounting the UF2 drive. Close serial monitors first. The browser cannot launch desktop programs.</p>
+          <div class="rp2350-picotool-command">
+            <code id="rp2350-picotool-command">picotool load -f -u -v -x click-rp2350.uf2</code>
+            <button class="rp2350-picotool-copy" id="rp2350-picotool-copy" type="button" title="Copy Picotool command">Copy</button>
+          </div>
+          <p class="rp2350-picotool-downloads">
+            <a class="rp2350-download-link" href="flash-rp2350.bat" download>Windows helper</a>
+            <a class="rp2350-download-link" href="flash-rp2350.sh" download>Linux/macOS helper</a>
+          </p>
+        </details>
+      </div>
+    </section>
 
     <!-- Alternative Flashing & Browser Options Section -->
     <section id="manual-section">
@@ -574,6 +610,7 @@
   </div>
 
   <script src="app.js"></script>
+  <script src="rp2350-flash.js" defer></script>
 </body>
 
 </html>

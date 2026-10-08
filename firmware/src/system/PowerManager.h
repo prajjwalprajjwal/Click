@@ -33,6 +33,9 @@
 #include <hardware/adc.h>
 #include <hardware/structs/scb.h>
 #include <pico/runtime_init.h>
+#if defined(TARGET_RP2354)
+#include <hardware/powman.h>
+#endif
 #endif
 
 class PowerManager {
@@ -189,6 +192,9 @@ public:
         pinMode(I2C_SDA, INPUT_PULLUP);
         pinMode(I2C_SCL, INPUT_PULLUP);
         pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
+#if ACTION_BUTTON_PIN >= 0
+        pinMode(ACTION_BUTTON_PIN, INPUT_PULLUP);
+#endif
 #if defined(CHARGER_STAT_PIN) && (CHARGER_STAT_PIN >= 0)
         pinMode(CHARGER_STAT_PIN, INPUT_PULLUP);
 #endif
@@ -212,11 +218,15 @@ public:
         gpio_disable_pulls(BATTERY_ADC_PIN);
 #endif
 
-        // 5. Disable digital input buffers on all unused GPIOs to eliminate floating CMOS shoot-through!
+        // 5. Put unused GPIOs in high impedance and disable their input buffers.
         for (uint pin = 0; pin < NUM_BANK0_GPIOS; pin++) {
             if (pin != MODE_BUTTON_PIN && pin != I2C_SDA && pin != I2C_SCL &&
+#if ACTION_BUTTON_PIN >= 0
+                pin != ACTION_BUTTON_PIN &&
+#endif
                 pin != WS2812_PIN && pin != BUZZER_PIN && pin != BATTERY_ADC_PIN &&
                 pin != CHARGER_STAT_PIN) {
+                gpio_set_dir(pin, false);
                 gpio_set_input_enabled(pin, false);
                 gpio_disable_pulls(pin);
             }
@@ -342,7 +352,6 @@ public:
         while (isModeButtonPressed() || isActionButtonPressed()) {
             delay(10);
         }
-
         // Restore active system clock to 48MHz
         set_sys_clock_khz(48000, false);
 #else
@@ -353,6 +362,85 @@ public:
 
         restore_after_light_sleep();
     }
+
+#if defined(TARGET_RP2354) && HAS_POWMAN_TIMER
+    using PstateResumeCallback = void (*)(pstate_bitset_t *sleepState);
+    static constexpr uint32_t PSTATE_WAKE_MARKER = 0x43504D50;
+
+    static void pstateResumeCallback(pstate_bitset_t *sleepState) {
+        (void)sleepState;
+        Serial.println("[PowerManager] Resumed from Powman P-state");
+    }
+
+    static void dispatch_pstate_resume() {
+        if (!(powman_hw->chip_reset & POWMAN_CHIP_RESET_HAD_SWCORE_PD_BITS) ||
+            powman_hw->scratch[5] != PSTATE_WAKE_MARKER) {
+            return;
+        }
+
+        pstate_bitset_t sleepState = pstate_bitset_none();
+        pstate_bitset_from_powman_power_state(&sleepState, powman_hw->scratch[6]);
+        PstateResumeCallback callback = reinterpret_cast<PstateResumeCallback>(
+            static_cast<uintptr_t>(powman_hw->scratch[7]));
+
+        powman_disable_all_wakeups();
+        powman_hw->scratch[5] = 0;
+        powman_hw->scratch[6] = 0;
+        powman_hw->scratch[7] = 0;
+
+        if (callback) {
+            callback(&sleepState);
+        }
+    }
+
+    static int enter_pstate_sleep(PstateResumeCallback resumeCallback) {
+        prepare_for_light_sleep();
+
+        while (isModeButtonPressed() || isActionButtonPressed()) {
+            delay(10);
+        }
+
+        powman_disable_all_wakeups();
+        powman_enable_gpio_wakeup(0, MODE_BUTTON_PIN, false, false);
+#if ACTION_BUTTON_PIN >= 0 && ACTION_BUTTON_PIN < NUM_BANK0_GPIOS
+        powman_enable_gpio_wakeup(1, ACTION_BUTTON_PIN, false, false);
+#endif
+
+#if ACTION_BUTTON_PIN < 0
+        Serial.println("[PowerManager] P-state wake: MODE only; ACTION is BOOTSEL/QSPI, not a Powman GPIO");
+#elif ACTION_BUTTON_PIN >= NUM_BANK0_GPIOS
+        Serial.println("[PowerManager] P-state wake: MODE only; ACTION pin is outside bank-0 GPIOs");
+#else
+        Serial.println("[PowerManager] P-state wake: MODE and ACTION GPIOs");
+#endif
+
+        powman_power_state sleepState = POWMAN_POWER_STATE_NONE;
+        powman_power_state wakeupState = powman_get_power_state();
+        if (!powman_configure_wakeup_state(sleepState, wakeupState)) {
+            powman_disable_all_wakeups();
+            return -1;
+        }
+
+        powman_hw->scratch[5] = PSTATE_WAKE_MARKER;
+        powman_hw->scratch[6] = sleepState;
+        powman_hw->scratch[7] = static_cast<uint32_t>(
+            reinterpret_cast<uintptr_t>(resumeCallback));
+
+        Serial.flush();
+        int result = powman_set_power_state(sleepState);
+        if (result != 0) {
+            powman_hw->scratch[5] = 0;
+            powman_hw->scratch[6] = 0;
+            powman_hw->scratch[7] = 0;
+            powman_disable_all_wakeups();
+            return result;
+        }
+
+        while (true) {
+            __wfi();
+        }
+    }
+#endif
 
     // Backwards compatibility aliases
     static void enterLightSleep() {

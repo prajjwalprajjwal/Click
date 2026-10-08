@@ -8,6 +8,9 @@
 OSManager::OSManager() = default;
 
 void OSManager::init() {
+#if defined(TARGET_RP2354) && HAS_POWMAN_TIMER
+    PowerManager::dispatch_pstate_resume();
+#endif
     inputManager.init();
     recordActivity();
     
@@ -99,13 +102,19 @@ void OSManager::checkSleepConditions() {
             display.ssd1306_command(0x05); // Idle dimming: drops OLED current by ~60%
         }
         if (idleTime >= deepSleepTimeout) {
-            Serial.println("[OSManager] Entering DEEP SLEEP (45s idle)");
+            Serial.println("[OSManager] Entering DEEP SLEEP");
             enterDeepSleep();
             return;
+#if defined(TARGET_RP2354)
+        } else if (idleTime >= lightSleepTimeout && displayOn) {
+            displayOn = false;
+            display.ssd1306_command(SSD1306_DISPLAYOFF);
+#else
         } else if (idleTime >= lightSleepTimeout) {
             Serial.println("[OSManager] Entering DORMANT SLEEP (20s idle, < 0.1mA)...");
             enterLightSleep();
             return;
+#endif
         }
     }
 }
@@ -195,7 +204,13 @@ void OSManager::enterDeepSleep() {
     display.clearDisplay();
     display.ssd1306_command(SSD1306_DISPLAYOFF);
     
-#if defined(ESP32)
+#if defined(TARGET_RP2354) && HAS_POWMAN_TIMER
+    Serial.println("[OSManager] P-state: entering Powman sleep...");
+    int sleepResult = PowerManager::enter_pstate_sleep(PowerManager::pstateResumeCallback);
+    Serial.printf("[OSManager] P-state entry failed (%d); falling back to light sleep\n", sleepResult);
+    PowerManager::enterLightSleep();
+    wakeFromLightSleep();
+#elif defined(ESP32)
     // Configure RTC GPIO wakeup & pull-ups for both buttons (D14 and D32)
     rtc_gpio_init((gpio_num_t)MODE_BUTTON_PIN);
     rtc_gpio_set_direction((gpio_num_t)MODE_BUTTON_PIN, RTC_GPIO_MODE_INPUT_ONLY);

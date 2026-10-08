@@ -1,4 +1,4 @@
-// Clicker ESP32 Web Flasher Controller
+// Clicker ESP32 and RP2350 Web Flasher Controller
 
 const DEFAULT_RELEASES = [
   {
