@@ -1,0 +1,159 @@
+.rp2350-flash-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(15rem, 0.72fr);
+  align-items: center;
+  gap: 1.5rem;
+  margin: 0 0 2.5rem;
+  padding: 1.35rem;
+  border: 1px solid var(--border-default, var(--click-border, rgba(255, 255, 255, 0.18)));
+  border-radius: 8px;
+  background: var(--bg-card, var(--click-card, #10131b));
+  color: var(--text-primary, var(--click-text, #f8fafc));
+}
+
+.rp2350-flash-title {
+  margin: 0 0 0.35rem;
+  font-family: var(--font-display, var(--click-font-display, sans-serif));
+  font-size: 1.45rem;
+  line-height: 1.2;
+}
+
+.rp2350-flash-copy p,
+.rp2350-flash-steps {
+  color: var(--text-secondary, var(--click-text-secondary, #a1a1aa));
+  font-size: 0.94rem;
+}
+
+.rp2350-flash-steps {
+  margin: 0.75rem 0 0 1.25rem;
+}
+
+.rp2350-flash-steps li + li {
+  margin-top: 0.3rem;
+}
+
+.rp2350-flash-warning {
+  margin-top: 0.75rem;
+  color: var(--accent-amber, #f59e0b) !important;
+}
+
+.rp2350-flash-controls {
+  display: grid;
+  gap: 0.7rem;
+}
+
+.rp2350-flash-button {
+  display: inline-flex;
+  min-height: 3rem;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--accent-blue, var(--click-cyan, #38bdf8));
+  border-radius: 6px;
+  background: var(--accent-blue, var(--click-cyan, #38bdf8));
+  color: #071018;
+  font: 700 1rem var(--font-display, var(--click-font-display, sans-serif));
+  cursor: pointer;
+}
+
+.rp2350-flash-button:hover:not(:disabled) {
+  filter: brightness(1.08);
+}
+
+.rp2350-flash-button:disabled {
+  cursor: not-allowed;
+  opacity: 0.55;
+}
+
+.rp2350-download-link {
+  justify-self: center;
+  color: var(--text-secondary, var(--click-text-secondary, #a1a1aa));
+  font-size: 0.9rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.rp2350-flash-status {
+  min-height: 2.8rem;
+  padding: 0.65rem 0.75rem;
+  border: 1px solid var(--border-default, var(--click-border, rgba(255, 255, 255, 0.18)));
+  border-radius: 6px;
+  color: var(--text-secondary, var(--click-text-secondary, #a1a1aa));
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
+.rp2350-flash-status[data-state="success"] {
+  border-color: rgba(16, 185, 129, 0.45);
+  color: #34d399;
+}
+
+.rp2350-flash-status[data-state="error"] {
+  border-color: rgba(244, 63, 94, 0.45);
+  color: #fb7185;
+}
+
+.rp2350-flash-status[data-state="working"] {
+  border-color: rgba(56, 189, 248, 0.45);
+  color: #7dd3fc;
+}
+
+.rp2350-picotool {
+  margin-top: 0.4rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border-default, var(--click-border, rgba(255, 255, 255, 0.18)));
+  color: var(--text-secondary, var(--click-text-secondary, #a1a1aa));
+  font-size: 0.88rem;
+}
+
+.rp2350-picotool summary {
+  color: var(--text-primary, var(--click-text, #f8fafc));
+  cursor: pointer;
+  font-weight: 700;
+}
+
+.rp2350-picotool p {
+  margin-top: 0.55rem;
+  line-height: 1.4;
+}
+
+.rp2350-picotool-command {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+.rp2350-picotool-command code {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--accent-blue, var(--click-cyan, #38bdf8));
+  font-family: var(--font-mono, var(--click-font-mono, monospace));
+  font-size: 0.8rem;
+}
+
+.rp2350-picotool-copy {
+  flex: 0 0 auto;
+  border: 1px solid var(--border-default, var(--click-border, rgba(255, 255, 255, 0.18)));
+  border-radius: 6px;
+  padding: 0.35rem 0.55rem;
+  background: var(--bg-inset, var(--click-surface, #0e131f));
+  color: var(--text-primary, var(--click-text, #f8fafc));
+  cursor: pointer;
+  font: 600 0.8rem var(--font-display, var(--click-font-display, sans-serif));
+}
+
+.rp2350-picotool-downloads {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.8rem;
+}
+
+@media (max-width: 700px) {
+  .rp2350-flash-panel {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    padding: 1rem;
+  }
+}
