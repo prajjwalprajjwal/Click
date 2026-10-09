@@ -53,6 +53,7 @@ let ch340Reassured = sessionStorage.getItem('flasher_ch340_reassured') === 'true
 
 // Binary Patcher for Custom Hardware Name
 window._customHardwareName = '';
+window.patchFirmwareCustomName = patchFirmwareCustomName;
 
 async function patchFirmwareCustomName(arrayBuffer, newName) {
   const bytes = new Uint8Array(arrayBuffer);
@@ -1435,7 +1436,7 @@ function updateSelectedVersion(tag) {
   const metaSize = document.getElementById('meta-size');
 
   if (metaVer) metaVer.textContent = rel.tag;
-  if (metaOffset) metaOffset.textContent = '0x10000';
+  if (metaOffset) metaOffset.textContent = 'BOOTSEL';
   if (metaSize) metaSize.textContent = rel.size ? `${Math.round(rel.size / 1024)} KB` : '~568 KB';
 
   // Construct absolute/resolved URL to ensure <esp-web-install-button> can always load it
@@ -1451,7 +1452,7 @@ function updateSelectedVersion(tag) {
   // Update CLI command sample
   const cliSnippet = document.getElementById('cli-code-snippet');
   if (cliSnippet) {
-    cliSnippet.textContent = `esptool.py --chip esp32 --baud 460800 --port COMx write_flash 0x0 releases/${rel.tag}/factory_firmware.bin`;
+    cliSnippet.textContent = `picotool load -f -u -v -x firmware.uf2`;
   }
 }
 
