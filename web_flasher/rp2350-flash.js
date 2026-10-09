@@ -1,108 +1,231 @@
-(() => {
-  const UF2_BLOCK_SIZE = 512;
-  const UF2_MAGIC_START0 = 0x0a324655;
-  const UF2_MAGIC_START1 = 0x9e5d5157;
-  const UF2_MAGIC_END = 0x0ab16f30;
-  const UF2_FLAG_FAMILY_ID = 0x00002000;
-  const RP2350_FAMILY_ID = 0xe48bff59;
+import { Picoboot } from './lib/picoboot/picoboot.js';
+import { Target } from './lib/picoboot/target.js';
+import { uf2ToFlashBuffer } from './lib/uf2.js';
 
-  document.addEventListener('DOMContentLoaded', () => {
-    const button = document.getElementById('rp2350-flash-button');
-    const status = document.getElementById('rp2350-flash-status');
-    if (!button || !status) return;
+let picoboot = null;
 
-    const copyButton = document.getElementById('rp2350-picotool-copy');
-    const picotoolCommand = document.getElementById('rp2350-picotool-command');
-    if (copyButton && picotoolCommand) {
-      copyButton.addEventListener('click', async () => {
+const RESET_REQUEST_BOOTSEL = 0x01;
+const PICOBOOT_VID = 0x2e8a;
+
+// Helper to find and configure a device by checking its interfaces
+async function findDevice(devices, wantBootsel) {
+    for (const d of devices) {
+        if (d.vendorId !== PICOBOOT_VID) continue;
         try {
-          await navigator.clipboard.writeText(picotoolCommand.textContent.trim());
-          setStatus(status, 'Picotool command copied. Run it on this computer with click-rp2350.uf2 beside it.', 'success');
-        } catch (error) {
-          setStatus(status, 'Clipboard access is unavailable. Use the desktop helper download or select the command to copy it.', 'notice');
+            await d.open();
+            if (d.configuration === null || d.configuration.configurationValue !== d.configurations[0].configurationValue) {
+                await d.selectConfiguration(d.configurations[0].configurationValue);
+            }
+            
+            const info = getPicobootInterface(d);
+            const isCurrentlyBootsel = (info.picobootIfNum !== -1 && !info.isAppMode);
+            const isCurrentlyApp = (info.picobootIfNum !== -1 && info.isAppMode);
+            
+            if (wantBootsel && isCurrentlyBootsel) return d;
+            if (!wantBootsel && isCurrentlyApp) return d;
+            
+            await d.close();
+        } catch (e) {
+            console.warn("Could not open/configure device", e);
         }
-      });
+    }
+    return null;
+}
+
+// Helper to check endpoints and find picoboot interface
+function getPicobootInterface(device) {
+    let picobootIfNum = -1;
+    let inEp = null, outEp = null, inEpMaxPacketSize = 0;
+    let isAppMode = false;
+    
+    for (const config of device.configurations) {
+        for (const iface of config.interfaces) {
+            for (const alt of iface.alternates) {
+                if (alt.interfaceClass === 255) {
+                    picobootIfNum = iface.interfaceNumber;
+                    let hasBulk = false;
+                    for (const ep of alt.endpoints) {
+                        if (ep.type === 'bulk') {
+                            hasBulk = true;
+                            if (ep.direction === 'in') {
+                                inEp = ep.endpointNumber;
+                                inEpMaxPacketSize = ep.packetSize;
+                            } else if (ep.direction === 'out') {
+                                outEp = ep.endpointNumber;
+                            }
+                        }
+                    }
+                    if (!hasBulk) isAppMode = true;
+                }
+            }
+        }
+    }
+    return { picobootIfNum, isAppMode, inEp, outEp, inEpMaxPacketSize };
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const flashBtn = document.getElementById('webusb-install-btn');
+    const statusEl = document.getElementById('webusb-status');
+
+    if (!flashBtn) return;
+
+    if (!('usb' in navigator)) {
+        flashBtn.disabled = true;
+        if (statusEl) statusEl.textContent = 'WebUSB is not supported in this browser. Please use Chrome or Edge.';
+        return;
     }
 
-    if (!window.isSecureContext || typeof window.showDirectoryPicker !== 'function') {
-      button.disabled = true;
-      setStatus(status, 'Use desktop Chrome or Edge over HTTPS or localhost to flash directly. The manual UF2 download remains available.', 'notice');
-      return;
-    }
+    flashBtn.addEventListener('click', async () => {
+        try {
+            flashBtn.disabled = true;
+            if (statusEl) statusEl.textContent = 'Scanning devices...';
+            
+            let device = null;
+            let info = null;
 
-    button.addEventListener('click', () => flashRp2350(button, status));
-  });
+            // 1. Try to seamlessly find an already permitted device in BOOTSEL mode
+            let permittedDevices = await navigator.usb.getDevices();
+            device = await findDevice(permittedDevices, true);
 
-  async function flashRp2350(button, status) {
-    button.disabled = true;
+            // 2. If no BOOTSEL device, try to seamlessly find an already permitted Application device and reset it
+            if (!device) {
+                const appDevice = await findDevice(permittedDevices, false);
+                if (appDevice) {
+                    const appInfo = getPicobootInterface(appDevice);
+                    if (appInfo.picobootIfNum !== -1 && appInfo.isAppMode) {
+                        if (statusEl) statusEl.textContent = 'Auto-resetting device to BOOTSEL...';
+                        try {
+                            await appDevice.claimInterface(appInfo.picobootIfNum);
+                            await appDevice.controlTransferOut({
+                                requestType: 'class', recipient: 'interface',
+                                request: RESET_REQUEST_BOOTSEL, value: 0, index: appInfo.picobootIfNum
+                            });
+                        } catch (e) {
+                            console.warn("Expected transfer error on reset:", e);
+                        }
+                        await appDevice.close();
+                        
+                        // Wait for it to reconnect as BOOTSEL
+                        for (let i = 0; i < 15; i++) {
+                            await new Promise(r => setTimeout(r, 200));
+                            permittedDevices = await navigator.usb.getDevices();
+                            device = await findDevice(permittedDevices, true);
+                            if (device) break;
+                        }
+                    }
+                }
+            }
 
-    try {
-      setStatus(status, 'Select the mounted RP2350 BOOTSEL drive.', 'working');
-      const directory = await window.showDirectoryPicker({ mode: 'readwrite' });
-      const infoHandle = await directory.getFileHandle('INFO_UF2.TXT');
-      const info = await (await infoHandle.getFile()).text();
+            // 3. If we STILL don't have a device (first time user), we must prompt them.
+            if (!device) {
+                if (statusEl) statusEl.textContent = 'Please select your device from the popup...';
+                try {
+                    device = await navigator.usb.requestDevice({ filters: [{ vendorId: PICOBOOT_VID }] });
+                } catch (e) {
+                    if (statusEl) statusEl.textContent = 'No device selected.';
+                    flashBtn.disabled = false;
+                    return;
+                }
+                
+                await device.open();
+                if (device.configuration === null || device.configuration.configurationValue !== device.configurations[0].configurationValue) {
+                    await device.selectConfiguration(device.configurations[0].configurationValue);
+                }
+                
+                info = getPicobootInterface(device);
 
-      if (!/RP2350/i.test(info)) {
-        throw new Error('The selected drive does not identify itself as an RP2350 boot volume.');
-      }
+                // If they selected an Application device, we reset it, but since they just consumed their user gesture,
+                // we have to ask them to click again for the BOOTSEL prompt (Browser Security Policy).
+                if (info.picobootIfNum !== -1 && info.isAppMode) {
+                    if (statusEl) statusEl.textContent = 'Resetting to BOOTSEL...';
+                    try {
+                        await device.claimInterface(info.picobootIfNum);
+                        await device.controlTransferOut({
+                            requestType: 'class', recipient: 'interface',
+                            request: RESET_REQUEST_BOOTSEL, value: 0, index: info.picobootIfNum
+                        });
+                    } catch (e) {
+                        console.warn("Expected transfer error on reset:", e);
+                    }
+                    await device.close();
+                    
+                    // Loop to seamlessly find it as a BOOTSEL device (since the PID is the same, Chrome might just apply the permission automatically)
+                    let bootDevice = null;
+                    for (let i = 0; i < 20; i++) {
+                        await new Promise(r => setTimeout(r, 200));
+                        let devices = await navigator.usb.getDevices();
+                        bootDevice = await findDevice(devices, true);
+                        if (bootDevice) break;
+                    }
+                    
+                    if (bootDevice) {
+                        device = bootDevice;
+                    } else {
+                        // We try to auto-prompt for the BOOTSEL device.
+                        // Because the PID is the same in both modes, you only need to grant permission once if it doesn't have a serial number.
+                        // If Chrome requires a second permission due to a serial number change, this popup will catch it.
+                        try {
+                            device = await navigator.usb.requestDevice({ filters: [{ vendorId: PICOBOOT_VID }] });
+                            await device.open();
+                            if (device.configuration === null || device.configuration.configurationValue !== device.configurations[0].configurationValue) {
+                                await device.selectConfiguration(device.configurations[0].configurationValue);
+                            }
+                        } catch (e) {
+                            if (statusEl) statusEl.textContent = 'Device rebooted. Please click Flash AGAIN to grant permission to the BOOTSEL device.';
+                            flashBtn.disabled = false;
+                            return;
+                        }
+                    }
+                }
+            }
 
-      setStatus(status, 'Checking the RP2350 firmware image…', 'working');
-      const firmwareUrl = new URL(button.dataset.firmwareUrl || 'firmware.uf2', window.location.href);
-      const response = await fetch(firmwareUrl, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`Firmware download failed (${response.status}).`);
-      }
+            // 4. We now have a BOOTSEL device!
+            info = getPicobootInterface(device);
+            if (info.picobootIfNum === -1 || info.isAppMode) {
+                if (statusEl) statusEl.textContent = `Could not find BOOTSEL interface.`;
+                await device.close();
+                flashBtn.disabled = false;
+                return;
+            }
 
-      const firmware = await response.arrayBuffer();
-      validateRp2350Uf2(firmware);
+            const target = new Target('RP2350', device.vendorId, device.productId);
+            picoboot = new Picoboot(device, target, info.picobootIfNum, info.outEp, info.inEp, info.inEpMaxPacketSize, {});
 
-      setStatus(status, `Writing firmware to ${directory.name}…`, 'working');
-      const firmwareHandle = await directory.getFileHandle('click-rp2350.uf2', { create: true });
-      const writable = await firmwareHandle.createWritable();
-      try {
-        await writable.write(firmware);
-        await writable.close();
-      } catch (error) {
-        await writable.abort().catch(() => {});
-        throw error;
-      }
+            if (statusEl) statusEl.textContent = 'Connecting...';
+            await picoboot.connect();
 
-      setStatus(status, 'Transfer complete. The RP2350 bootloader should install the UF2 and reboot the Clicker.', 'success');
-    } catch (error) {
-      if (error.name === 'AbortError') {
-        setStatus(status, 'Drive selection cancelled. No firmware was written.', 'notice');
-      } else {
-        console.error('[RP2350 Flasher]', error);
-        setStatus(status, error.message || 'RP2350 flashing failed. Download the UF2 and copy it to the BOOTSEL drive manually.', 'error');
-      }
-    } finally {
-      button.disabled = false;
-    }
-  }
+            if (statusEl) statusEl.textContent = 'Downloading firmware.uf2...';
+            const response = await fetch('firmware.uf2');
+            if (!response.ok) throw new Error('Failed to fetch firmware.uf2');
+            const uf2Buffer = await response.arrayBuffer();
+            
+            if (statusEl) statusEl.textContent = 'Parsing UF2...';
+            const flashBuffer = uf2ToFlashBuffer(new Uint8Array(uf2Buffer));
+            
+            let finalBuffer = flashBuffer.data;
+            if (window.patchFirmwareCustomName && window._customHardwareName) {
+                const patched = await window.patchFirmwareCustomName(finalBuffer.buffer, window._customHardwareName);
+                finalBuffer = new Uint8Array(patched);
+            }
 
-  function validateRp2350Uf2(buffer) {
-    if (buffer.byteLength === 0 || buffer.byteLength % UF2_BLOCK_SIZE !== 0) {
-      throw new Error('The RP2350 UF2 image has an invalid block size.');
-    }
+            if (statusEl) statusEl.textContent = 'Flashing... Do not disconnect!';
+            await picoboot.flashEraseAndWrite(flashBuffer.address, finalBuffer);
 
-    const view = new DataView(buffer);
-    const blockCount = buffer.byteLength / UF2_BLOCK_SIZE;
-
-    for (let offset = 0; offset < buffer.byteLength; offset += UF2_BLOCK_SIZE) {
-      const flags = view.getUint32(offset + 8, true);
-      if (view.getUint32(offset, true) !== UF2_MAGIC_START0 ||
-          view.getUint32(offset + 4, true) !== UF2_MAGIC_START1 ||
-          view.getUint32(offset + 24, true) !== blockCount ||
-          !(flags & UF2_FLAG_FAMILY_ID) ||
-          view.getUint32(offset + 28, true) !== RP2350_FAMILY_ID ||
-          view.getUint32(offset + 508, true) !== UF2_MAGIC_END) {
-        throw new Error('The selected firmware is not a valid RP2350 UF2 image.');
-      }
-    }
-  }
-
-  function setStatus(element, message, state) {
-    element.textContent = message;
-    element.dataset.state = state;
-  }
-})();
+            if (statusEl) statusEl.textContent = 'Rebooting...';
+            await picoboot.getConnection().reboot(500);
+            
+            if (statusEl) statusEl.textContent = 'Flash Complete! Success!';
+        } catch (error) {
+            console.error(error);
+            if (statusEl) statusEl.textContent = 'Error: ' + error.message;
+        } finally {
+            if (picoboot) {
+                try {
+                    await picoboot.disconnect();
+                } catch (e) {}
+                picoboot = null;
+            }
+            flashBtn.disabled = false;
+        }
+    });
+});
