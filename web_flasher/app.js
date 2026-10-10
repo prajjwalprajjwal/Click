@@ -2,15 +2,28 @@
 
 const DEFAULT_RELEASES = [
   {
+    tag: "v0.1.1",
+    version: "0.1.1",
+    name: "Clicker Device Firmware",
+    manifest: "releases/v0.1.1/manifest.json",
+    bin: "releases/v0.1.1/firmware.bin",
+    factory_bin: "releases/v0.1.1/factory_firmware.bin",
+    size: 582624,
+    factory_size: 648160,
+    is_latest: true,
+    uf2: "releases/v0.1.1/firmware.uf2",
+    uf2_size: 316416
+  },
+  {
     tag: "v0.1.0",
     version: "0.1.0",
     name: "Clicker Device Firmware",
     manifest: "releases/v0.1.0/manifest.json",
     bin: "releases/v0.1.0/firmware.bin",
     factory_bin: "releases/v0.1.0/factory_firmware.bin",
-    size: 570240,
-    factory_size: 635776,
-    is_latest: true
+    size: 579184,
+    factory_size: 644720,
+    is_latest: false
   },
   {
     tag: "v0.0.1",
@@ -93,7 +106,13 @@ async function patchFirmwareCustomName(arrayBuffer, newName) {
 
   const nameOffset = targetIdx + 16;
   const oldBytes = new Uint8Array(bytes.subarray(nameOffset, nameOffset + 32));
-  const cleanName = (newName && newName.trim().length > 0) ? newName.trim() : 'CLICKER';
+  const cleanName = (newName && typeof newName === 'string') ? newName.trim() : '';
+
+  if (!cleanName || cleanName.toUpperCase() === 'CLICKER') {
+    console.info('[Web Flasher] Custom name is empty or default; leaving binary unpatched so device keeps its existing name or hardware ID (Click-<last4>).');
+    return arrayBuffer;
+  }
+
   const newBytes = new Uint8Array(32);
   for (let i = 0; i < Math.min(cleanName.length, 31); i++) {
     newBytes[i] = cleanName.charCodeAt(i) & 0xff;
@@ -133,14 +152,21 @@ if (!window._flasherFetchHooked) {
     const response = await origFetch.apply(this, args);
     if (url.includes('firmware.bin')) {
       try {
-        const nameToUse = window._customHardwareName || 'CLICKER';
-        const buf = await response.arrayBuffer();
-        const patchedBuf = await patchFirmwareCustomName(buf, nameToUse);
-        return new Response(patchedBuf, {
-          status: response.status,
-          statusText: response.statusText,
-          headers: response.headers,
-        });
+        const nameInput = document.getElementById('device-name-input');
+        const enteredName = nameInput ? nameInput.value.trim() : '';
+        let nameToUse = enteredName || window._customHardwareName || '';
+        if (nameToUse.toUpperCase() === 'CLICKER') {
+          nameToUse = '';
+        }
+        if (nameToUse) {
+          const buf = await response.arrayBuffer();
+          const patchedBuf = await patchFirmwareCustomName(buf, nameToUse);
+          return new Response(patchedBuf, {
+            status: response.status,
+            statusText: response.statusText,
+            headers: response.headers,
+          });
+        }
       } catch (err) {
         console.error('[Web Flasher] Error patching firmware binary:', err);
         return response;
@@ -160,6 +186,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   initVersionSelector();
   renderDownloadsTable();
   initClipboardButtons();
+  initDeviceNameInput();
   initSyncStats();
 });
 
@@ -1179,7 +1206,11 @@ if (typeof customElements !== 'undefined') {
         if (!this._hasStartedFlashing && this._state === 'INSTALL' && !this._installConfirmed && this.shadowRoot) {
           const contentDiv = this.shadowRoot.querySelector('div[slot="content"]');
           if (contentDiv && !contentDiv.querySelector('#modal-mode-menu')) {
-            const ver = (this._manifest && this._manifest.version) ? `v${this._manifest.version}` : 'v0.1.0';
+            const ver = (this._manifest && this._manifest.version) ? `v${this._manifest.version}` : 'v0.1.1';
+            const savedName = window._customHardwareName 
+                           || localStorage.getItem('click_name_' + (window._currentChipId || '')) 
+                           || localStorage.getItem('click_last_device_name') 
+                           || '';
             contentDiv.innerHTML = `
               <div class="modal-cyber-badge" id="modal-pill-container" title="Click to name your hardware">
                 <span class="pulse-emerald-dot"></span>
@@ -1188,7 +1219,7 @@ if (typeof customElements !== 'undefined') {
                   id="modal-hardware-name-input"
                   class="modal-hardware-name-input"
                   placeholder="Name your Click"
-                  value="${window._customHardwareName || ''}"
+                  value="${savedName}"
                   maxlength="20"
                   autocomplete="off"
                   spellcheck="false"
@@ -1258,7 +1289,14 @@ if (typeof customElements !== 'undefined') {
             const nameInput = contentDiv.querySelector('#modal-hardware-name-input');
             if (nameInput) {
               nameInput.addEventListener('input', (e) => {
-                window._customHardwareName = e.target.value.trim();
+                const val = e.target.value.trim();
+                window._customHardwareName = val;
+                if (val && val !== 'CLICKER') {
+                  localStorage.setItem('click_last_device_name', val);
+                  if (window._currentChipId) {
+                    localStorage.setItem('click_name_' + window._currentChipId, val);
+                  }
+                }
               });
               nameInput.addEventListener('click', (e) => {
                 e.stopPropagation();
@@ -1460,28 +1498,384 @@ function renderDownloadsTable() {
   const tbody = document.getElementById('releases-tbody');
   if (!tbody) return;
 
-  tbody.innerHTML = availableReleases.map(rel => `
-    <tr>
-      <td>
-        <span class="tag-badge ${rel.is_latest ? 'latest' : ''}">${rel.tag}</span>
-        ${rel.is_latest ? '<span style="color:var(--accent-emerald);margin-left:0.5rem;font-size:0.8rem;font-weight:600;">LATEST</span>' : ''}
-      </td>
-      <td style="color:var(--text-secondary);font-family:var(--font-mono);font-size:0.85rem;">
-        <strong style="color:var(--accent-cyan);">0x0</strong> (Merged Factory)
-      </td>
-      <td style="color:var(--text-muted);font-size:0.85rem;">${rel.factory_size ? `${Math.round(rel.factory_size / 1024)} KB` : '~420 KB'}</td>
-      <td style="text-align:right;">
-        <a href="${rel.factory_bin || 'factory_firmware.bin'}" download="clicker-${rel.tag}-factory.bin" class="btn-download" title="Download Merged Factory Binary for web.esphome.io / esptool at offset 0x0">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
-            <polyline points="7 10 12 15 17 10"></polyline>
-            <line x1="12" y1="15" x2="12" y2="3"></line>
-          </svg>
-          <span>factory_firmware.bin</span>
-        </a>
-      </td>
-    </tr>
-  `).join('');
+  const latestTwo = availableReleases.slice(0, 2);
+  const olderReleases = availableReleases.slice(2);
+
+  function renderReleaseRow(rel, isOlder = false) {
+    const uf2Path = rel.uf2 || (rel.tag === 'v0.1.1' ? `releases/${rel.tag}/firmware.uf2` : (rel.is_latest ? 'firmware.uf2' : null));
+    const binPath = rel.bin || `releases/${rel.tag}/firmware.bin`;
+    const factoryBinPath = rel.factory_bin || `releases/${rel.tag}/factory_firmware.bin`;
+    const uf2SizeStr = rel.uf2_size ? `${Math.round(rel.uf2_size / 1024)} KB` : (uf2Path ? '~309 KB' : null);
+    const binSizeStr = rel.size ? `${Math.round(rel.size / 1024)} KB` : '~568 KB';
+    const factorySizeStr = rel.factory_size ? `${Math.round(rel.factory_size / 1024)} KB` : '~633 KB';
+
+    return `
+      <tr class="${isOlder ? 'older-release-row' : ''}" style="${isOlder ? 'display: none;' : ''}">
+        <td style="padding: 0.85rem 1.25rem;">
+          <div style="display:flex;align-items:center;gap:0.5rem;">
+            <span class="tag-badge ${rel.is_latest ? 'latest' : ''}">${rel.tag}</span>
+            ${rel.is_latest ? '<span style="color:var(--accent-emerald);font-size:0.75rem;font-weight:700;letter-spacing:0.04em;">LATEST</span>' : ''}
+          </div>
+        </td>
+        <td style="padding: 0.85rem 1.25rem; color: var(--text-secondary); font-size: 0.9rem; font-family: var(--font-display); font-weight: 600;">
+          RP2354
+        </td>
+        <td style="padding: 0.85rem 1.25rem; text-align:right;">
+          <div style="display:inline-flex;gap:0.45rem;flex-wrap:wrap;justify-content:flex-end;">
+            ${uf2Path ? `
+              <a href="${uf2Path}" download="clicker-${rel.tag}-rp2354.uf2" class="btn-download" style="padding:0.4rem 0.75rem;font-size:0.8rem;border-color:rgba(56,189,248,0.35);color:#38bdf8;" title="Download RP2354 UF2 for BOOTSEL USB drag-and-drop">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                <span>firmware.uf2</span>
+              </a>
+            ` : ''}
+            <a href="${binPath}" download="clicker-${rel.tag}-firmware.bin" class="btn-download" style="padding:0.4rem 0.75rem;font-size:0.8rem;color:var(--accent-emerald);border-color:rgba(16,185,129,0.3);" title="Download App-Only Binary (Preserves Stored Stats)">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>firmware.bin</span>
+            </a>
+            <a href="${factoryBinPath}" download="clicker-${rel.tag}-factory.bin" class="btn-download" style="padding:0.4rem 0.75rem;font-size:0.8rem;color:var(--text-secondary);" title="Download Full Merged Factory Binary for offset 0x0">
+              <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                <polyline points="7 10 12 15 17 10"></polyline>
+                <line x1="12" y1="15" x2="12" y2="3"></line>
+              </svg>
+              <span>factory.bin</span>
+            </a>
+          </div>
+        </td>
+      </tr>
+    `;
+  }
+
+  let html = latestTwo.map(rel => renderReleaseRow(rel, false)).join('');
+
+  if (olderReleases.length > 0) {
+    html += `
+      <tr id="older-releases-toggle-row">
+        <td colspan="3" style="padding: 0.85rem 1.25rem; text-align: center; border-bottom: 1px solid var(--border-subtle);">
+          <button id="btn-toggle-older-releases" class="btn-download" type="button" aria-expanded="false" style="color: var(--text-secondary);">
+            <span id="btn-toggle-older-text">Older Releases (${olderReleases.length})</span>
+            <svg id="older-chevron" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="transition: transform 0.2s ease;">
+              <polyline points="6 9 12 15 18 9"></polyline>
+            </svg>
+          </button>
+        </td>
+      </tr>
+    `;
+    html += olderReleases.map(rel => renderReleaseRow(rel, true)).join('');
+  }
+
+  tbody.innerHTML = html;
+
+  if (olderReleases.length > 0) {
+    const toggleBtn = document.getElementById('btn-toggle-older-releases');
+    const chevron = document.getElementById('older-chevron');
+    const toggleText = document.getElementById('btn-toggle-older-text');
+    let expanded = false;
+
+    if (toggleBtn) {
+      toggleBtn.addEventListener('click', () => {
+        expanded = !expanded;
+        toggleBtn.setAttribute('aria-expanded', String(expanded));
+        const olderRows = tbody.querySelectorAll('.older-release-row');
+        olderRows.forEach(row => {
+          row.style.display = expanded ? 'table-row' : 'none';
+        });
+        if (chevron) {
+          chevron.style.transform = expanded ? 'rotate(180deg)' : 'rotate(0deg)';
+        }
+        if (toggleText) {
+          toggleText.textContent = expanded
+            ? `Hide Older Releases (${olderReleases.length})`
+            : `Older Releases (${olderReleases.length})`;
+        }
+      });
+    }
+  }
+}
+
+window._userManuallyEditedName = false;
+window._customHardwareName = '';
+window._detectedHardwareName = '';
+
+function updateDeviceNameStatus(msg, type = 'info') {
+  const statusEl = document.getElementById('device-name-status');
+  const textEl = document.getElementById('device-name-status-text');
+  if (!statusEl || !textEl) return;
+
+  statusEl.style.display = 'flex';
+  textEl.textContent = msg;
+
+  if (type === 'success') {
+    statusEl.style.color = 'var(--accent-emerald, #34d399)';
+  } else if (type === 'manual') {
+    statusEl.style.color = 'var(--accent-cyan, #38bdf8)';
+  } else if (type === 'error') {
+    statusEl.style.color = '#f87171';
+  } else {
+    statusEl.style.color = 'var(--text-secondary, #a1a1aa)';
+  }
+}
+
+async function queryDeviceSerialTelemetry(port) {
+  let reader = null;
+  let writer = null;
+  try {
+    await port.open({ baudRate: 115200 });
+    const encoder = new TextEncoder();
+    const decoder = new TextDecoder();
+    reader = port.readable.getReader();
+    writer = port.writable.getWriter();
+
+    let buffer = "";
+    let statsData = null;
+    let stopReading = false;
+
+    const readPromise = (async () => {
+      try {
+        while (!stopReading) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          if (value) {
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split(/[\r\n]+/);
+            buffer = lines.pop() || "";
+            for (const line of lines) {
+              const trimmed = line.trim();
+              if (trimmed.includes('"event":"stats"')) {
+                const s = trimmed.indexOf('{');
+                const e = trimmed.lastIndexOf('}');
+                if (s !== -1 && e > s) {
+                  try {
+                    statsData = JSON.parse(trimmed.substring(s, e + 1));
+                    stopReading = true;
+                    return;
+                  } catch (e) {}
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {}
+    })();
+
+    // Issue GET_STATS up to 3 times
+    for (let i = 0; i < 3 && !statsData; i++) {
+      try {
+        await writer.write(encoder.encode("\r\nGET_STATS\r\n"));
+      } catch (e) {}
+      const start = Date.now();
+      while (Date.now() - start < 350 && !statsData) {
+        await new Promise(r => setTimeout(r, 35));
+      }
+    }
+
+    stopReading = true;
+    try { await reader.cancel(); } catch (e) {}
+    await readPromise;
+    return statsData;
+  } finally {
+    if (reader) {
+      try { reader.releaseLock(); } catch (e) {}
+    }
+    if (writer) {
+      try { writer.releaseLock(); } catch (e) {}
+    }
+    try { await port.close(); } catch (e) {}
+  }
+}
+
+async function queryAndFillDevice({ interactive = false } = {}) {
+  // CRITICAL RULE: "change it only when manually changed"
+  // If user has already manually typed in the field, DO NOT overwrite unless they explicitly clicked the Detect button!
+  if (window._userManuallyEditedName && !interactive) {
+    console.debug('[Web Flasher] Skipping auto-detect because name was manually edited by user.');
+    return;
+  }
+
+  if (!('serial' in navigator)) {
+    if (interactive) {
+      updateDeviceNameStatus('Web Serial requires Google Chrome, Edge, or Brave.', 'error');
+    }
+    return;
+  }
+
+  const btnDetect = document.getElementById('btn-detect-device-name');
+  const btnText = document.getElementById('btn-detect-text');
+  const nameInput = document.getElementById('device-name-input');
+
+  let port = null;
+  try {
+    if (interactive) {
+      if (btnText) btnText.textContent = 'Selecting...';
+      port = await navigator.serial.requestPort();
+    } else {
+      const ports = await navigator.serial.getPorts();
+      if (!ports || ports.length === 0) {
+        await queryAndFillUsbDevice();
+        return;
+      }
+      port = ports[0];
+    }
+  } catch (err) {
+    if (btnText) btnText.textContent = 'Detect Device';
+    console.debug('[Web Flasher] Port selection cancelled or failed:', err);
+    return;
+  }
+
+  if (!port) return;
+
+  if (btnText) btnText.textContent = 'Detecting...';
+  if (btnDetect) btnDetect.disabled = true;
+
+  try {
+    const statsData = await queryDeviceSerialTelemetry(port);
+    if (statsData) {
+      let resolvedName = (statsData.name || '').trim();
+      const chipId = statsData.chip_id || statsData.uuid || '';
+      if (chipId) {
+        window._currentChipId = chipId;
+      }
+
+      // If device returns no name or default "CLICKER", derive unique cool name "Click-<last4>"
+      if (!resolvedName || resolvedName.toUpperCase() === 'CLICKER') {
+        const last4 = chipId && chipId.length >= 4 ? chipId.slice(-4).toUpperCase() : '8F2B';
+        resolvedName = 'Click-' + last4;
+      }
+
+      // If user clicked Detect explicitly, reset the manual edit flag
+      if (interactive) {
+        window._userManuallyEditedName = false;
+      }
+
+      if (!window._userManuallyEditedName) {
+        if (nameInput) {
+          nameInput.value = resolvedName;
+        }
+        window._customHardwareName = resolvedName;
+        window._detectedHardwareName = resolvedName;
+        if (chipId) {
+          localStorage.setItem('click_name_' + chipId, resolvedName);
+        }
+        localStorage.setItem('click_last_device_name', resolvedName);
+      }
+
+      updateDeviceNameStatus(`Connected: ${resolvedName}`, 'success');
+      if (btnDetect) btnDetect.classList.add('connected');
+      if (btnText) {
+        btnText.textContent = 'Detected ✓';
+        setTimeout(() => {
+          if (btnText) btnText.textContent = 'Re-detect';
+        }, 2500);
+      }
+    } else {
+      if (btnText) btnText.textContent = 'Detect Device';
+      updateDeviceNameStatus('Click connected on USB (ready to flash)', 'info');
+    }
+  } catch (err) {
+    console.warn('[Web Flasher] Error during device auto-detect:', err);
+    if (btnText) btnText.textContent = 'Detect Device';
+  } finally {
+    if (btnDetect) btnDetect.disabled = false;
+  }
+}
+
+async function queryAndFillUsbDevice() {
+  if (window._userManuallyEditedName) return;
+  if (!('usb' in navigator)) return;
+
+  try {
+    const devices = await navigator.usb.getDevices();
+    for (const dev of devices) {
+      if (dev.vendorId === 0x2e8a) { // RP2350
+        const serial = dev.serialNumber;
+        if (serial) {
+          window._currentChipId = serial;
+          const cached = localStorage.getItem('click_name_' + serial);
+          const last4 = serial.length >= 4 ? serial.slice(-4).toUpperCase() : serial;
+          const defaultName = 'Click-' + last4;
+          const resolvedName = cached || defaultName;
+
+          if (!window._userManuallyEditedName) {
+            const nameInput = document.getElementById('device-name-input');
+            if (nameInput && !nameInput.value.trim()) {
+              nameInput.value = resolvedName;
+              window._customHardwareName = resolvedName;
+              window._detectedHardwareName = resolvedName;
+              updateDeviceNameStatus(`Connected: ${resolvedName}`, 'success');
+            }
+          }
+        }
+      }
+    }
+  } catch (e) {
+    console.debug('[Web Flasher] USB device check error:', e);
+  }
+}
+
+function initDeviceNameInput() {
+  const nameInput = document.getElementById('device-name-input');
+  if (!nameInput) return;
+
+  nameInput.addEventListener('input', (e) => {
+    // User has manually typed in the field!
+    window._userManuallyEditedName = true;
+    const val = e.target.value.trim();
+    window._customHardwareName = val;
+    if (val && val.toUpperCase() !== 'CLICKER') {
+      localStorage.setItem('click_last_device_name', val);
+      if (window._currentChipId) {
+        localStorage.setItem('click_name_' + window._currentChipId, val);
+      }
+      updateDeviceNameStatus(`Custom name: "${val}" (will be applied on flash)`, 'manual');
+    } else if (val) {
+      updateDeviceNameStatus('Default name will be preserved on flash', 'info');
+    } else {
+      updateDeviceNameStatus('Device will keep its existing name or unique ID Click-<last4>', 'info');
+    }
+  });
+
+  const btnDetect = document.getElementById('btn-detect-device-name');
+  if (btnDetect) {
+    btnDetect.addEventListener('click', () => {
+      queryAndFillDevice({ interactive: true });
+    });
+  }
+
+  // Automatic hotplug detection: as soon as device is connected via USB
+  if ('serial' in navigator) {
+    navigator.serial.addEventListener('connect', (event) => {
+      console.info('[Web Flasher] Serial device connected. Auto-querying device name...');
+      queryAndFillDevice({ interactive: false });
+    });
+    navigator.serial.addEventListener('disconnect', (event) => {
+      console.info('[Web Flasher] Serial device disconnected.');
+      const btnDetect = document.getElementById('btn-detect-device-name');
+      if (btnDetect) btnDetect.classList.remove('connected');
+      if (!window._userManuallyEditedName) {
+        updateDeviceNameStatus('Device disconnected', 'info');
+      }
+    });
+  }
+
+  if ('usb' in navigator) {
+    navigator.usb.addEventListener('connect', (event) => {
+      console.info('[Web Flasher] USB device connected.');
+      queryAndFillUsbDevice();
+    });
+  }
+
+  // Auto-detect on page load
+  setTimeout(() => {
+    queryAndFillDevice({ interactive: false });
+  }, 150);
 }
 
 function initClipboardButtons() {
@@ -1664,8 +2058,28 @@ function initSyncStats() {
         return raw;
       }
 
-      const deviceName = statsData.name || 'CLICKER';
+      let deviceName = (statsData.name || '').trim();
       const deviceChipId = statsData.chip_id || statsData.uuid || '--';
+      window._currentChipId = deviceChipId;
+
+      if (!deviceName || deviceName.toUpperCase() === 'CLICKER') {
+        const last4 = deviceChipId !== '--' && deviceChipId.length >= 4 ? deviceChipId.slice(-4).toUpperCase() : '8F2B';
+        deviceName = 'Click-' + last4;
+      }
+
+      window._detectedHardwareName = deviceName;
+
+      // Only fill and update if user has NOT manually edited the input
+      if (!window._userManuallyEditedName) {
+        window._customHardwareName = deviceName;
+        const nameInput = document.getElementById('device-name-input');
+        if (nameInput) {
+          nameInput.value = deviceName;
+        }
+        localStorage.setItem('click_name_' + deviceChipId, deviceName);
+        localStorage.setItem('click_last_device_name', deviceName);
+        updateDeviceNameStatus(`Connected: ${deviceName}`, 'success');
+      }
       const deviceClicks = Number(statsData.clicks || 0);
       const deviceFlappy = Number(statsData.flappy !== undefined ? statsData.flappy : (statsData.flappy_high || 0));
       const deviceJustTen = Number(statsData.just_ten !== undefined ? statsData.just_ten : (statsData.just_ten_time || 0));

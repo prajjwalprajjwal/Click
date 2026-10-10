@@ -6,22 +6,60 @@ Browser firmware installer for the open-source Clicker device ecosystem. ESP32 u
 
 ## 🌟 Key Features
 
-1. **Firmware Flashing & Updates (Data Preservation)**:
-   - **Update (Keep Data)**: Flashes `firmware.bin` to offset `0x10000` (`app0`) while preserving all lifetime clicks, completed cycles, and unlocked milestones in the `nvs` partition (`0x9000`).
-   - **Clean Install (Erase)**: Enabled via `"new_install_prompt_erase": true` in `manifest.json`. Users can choose to execute a full factory wipe when restoring unbootable units or transferring ownership.
-2. **Device Personalization (Custom Bootscreen)**:
-   - Connects to the Clicker device over WebSerial (115200 baud).
-   - Reads the unique silicon identifier (RP2354A 16-hex Unique Board ID or ESP32 12-hex eFuse MAC) and prompts the user for a custom owner name (e.g. `"Prajjwal's Click"`).
-   - Personalizes the binary or updates device storage—the custom name displays proudly on the physical OLED bootscreen upon boot!
-3. **Live Community Leaderboard & Boulder Sync**:
+1. **Device Personalization & Custom Name Field**:
+   - Includes a dedicated **Device Name** input field with a seamless **Detect Device** action.
+   - When a device is connected (via USB hotplug, "Detect Device", or "Sync Telemetry"), its current custom name or unique silicon identity (`Click-<last4>`) **automatically populates the field**.
+   - The field is only changed when you manually edit it. Leaving it unedited or blank guarantees the device is never renamed to generic `CLICKER`, fully preserving its existing name or hardware identity.
+   - Custom names are embedded into the firmware image prior to flashing and safely stored in hardware storage so they display on the OLED bootscreen and persist across reflashes.
+2. **Safe Updates vs. Optional Factory Wipe**:
+   - **Default Mode (Keep Data)**: Flashes firmware while preserving all lifetime clicks, unlocked milestones, and local settings.
+   - **Factory Wipe Checkbox**: An optional checkbox (**unchecked by default**) allows executing a complete chip wipe when transferring ownership or recovering corrupted storage.
+3. **Firmware Release History & Dropdown Archive**:
+   - Shows the **latest 2 firmware releases** directly in the manual downloads table with instant links for `firmware.uf2`, `firmware.bin`, and `factory_firmware.bin`.
+   - Collapses older archived releases into an interactive **dropdown button**, keeping the interface clean while preserving full access to past binaries.
+4. **Live Community Leaderboard & Boulder Sync**:
    - Integrates directly with the Cloudflare Worker serverless backend (`/api/sync` and `/api/leaderboard`).
    - Queries telemetry (`clicks`, `flappy`, `just_ten`, `uptime_hrs`) via `\r\nGET_STATS\r\n` and submits verified deltas to the Community Boulder.
    - Shows live podiums and top 10 rankings for Sisyphus, Flappy Bird, and Just Ten.
-4. **RP2354A / RP2350 USB & Picotool Updates**:
+5. **RP2354A / RP2350 USB & Picotool Updates**:
     - The RP2354 PlatformIO profile (`env:rp2354`) enables the Arduino-Pico Picotool USB reset interface (`ENABLE_PICOTOOL_USB=1`).
-    - After firmware is installed, `picotool load -f -u -v -x click-rp2350.uf2` uses the running USB interface to reset into ROM PICOBOOT, flash, and reboot without mounting the UF2 mass-storage volume.
-    - Web flasher also provides downloadable desktop helpers (`flash-rp2350.bat` / `flash-rp2350.sh`) and drag-and-drop UF2 boot-volume validation.
+    - Web flasher provides WebUSB flashing, downloadable desktop helpers (`flash-rp2350.bat` / `flash-rp2350.sh`), and drag-and-drop UF2 boot-volume validation.
 
+
+---
+
+## 💻 How to Run & Open Locally
+
+To run the Web Flasher on your local computer (e.g. for offline use or local development):
+
+### Method 1: Using the Built-In Python Server (Recommended)
+From the repository root, run:
+```bash
+python3 tools/flasher/serve_flasher.py
+```
+*(On Windows, you can also simply double-click [`run_flasher.bat`](../run_flasher.bat).)*
+
+- The script automatically detects an available port (default `8080`), starts the local HTTP server, and **automatically launches your default browser** directly to:
+  👉 **`http://localhost:8080/web_flasher/index.html`**
+
+### Method 2: Serving Directly from the `web_flasher` Directory
+If you prefer running Python's built-in HTTP server directly:
+```bash
+# From the repository root:
+python3 -m http.server 8080 --directory web_flasher
+```
+Then open your browser and navigate to:
+👉 **`http://localhost:8080/`** (or `http://localhost:8080/index.html`)
+
+> [!IMPORTANT]
+> **Browser Compatibility**:  
+> Web flashing utilizes the Web Serial and WebUSB standards, which require a **Chromium-based browser**:
+> - ✅ Google Chrome (Recommended)
+> - ✅ Microsoft Edge
+> - ✅ Brave
+> - ✅ Opera
+> 
+> *(Safari and Firefox do not currently support Web Serial / WebUSB APIs).*
 
 ---
 
@@ -40,9 +78,12 @@ Click/
 │   ├── app.js                      # Controller & version selector logic
 │   ├── manifest.json               # Standalone root manifest
 │   ├── firmware.bin                # Active app-only binary (offset 0x10000)
+│   ├── firmware.uf2                # Active RP2354 UF2 image (BOOTSEL drag-and-drop)
+│   ├── factory_firmware.bin        # Merged factory binary (offset 0x0)
 │   ├── bootloader.bin              # 2nd stage bootloader (offset 0x1000)
 │   ├── partitions.bin              # Partition table (offset 0x8000)
-│   └── versions.json               # Release catalog with hashes and download URLs
+│   ├── versions.json               # Release catalog with hashes and download URLs
+│   └── releases/                   # Multi-version release archive (v0.1.1, v0.1.0, etc.)
 ├── tools/
 │   ├── flasher/                    # Local HTTP server & desktop CLI utilities
 │   │   ├── serve_flasher.py        # Zero-dependency localhost Python web server
@@ -58,7 +99,7 @@ Click/
 
 ## 1-Click Launchers
 
-- **Run Web Flasher**: Double-click [`run_flasher.bat`](../run_flasher.bat) or run `python tools/flasher/serve_flasher.py` &rarr; Opens `http://localhost:8080/web_flasher/index.html`.
+- **Run Web Flasher**: Double-click [`run_flasher.bat`](../run_flasher.bat) or run `python3 tools/flasher/serve_flasher.py` &rarr; Opens `http://localhost:8080/web_flasher/index.html`.
 - **Desktop CLI Flasher**: Double-click [`flash_device.bat`](../flash_device.bat) &rarr; Interactive COM port detection & data-safe flashing.
 - **RP2350 Picotool Update**: After installing a build with `ENABLE_PICOTOOL_USB`, run `web_flasher/flash-rp2350.bat` or `bash web_flasher/flash-rp2350.sh` with `click-rp2350.uf2` beside the helper.
 - **Build Release**: Double-click [`build_release.bat`](../build_release.bat) &rarr; Compiles firmware via PlatformIO, builds `factory_firmware.bin` via `esptool merge_bin`, updates manifests, and syncs binaries.

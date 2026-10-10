@@ -39,7 +39,7 @@ public:
                  id.id[4], id.id[5], id.id[6], id.id[7]);
         return String(idStr);
 #else
-        return String("CLICKER000000");
+        return String("CLICK00000000");
 #endif
     }
 
@@ -66,7 +66,9 @@ public:
     static const char* getCustomName() {
         static char nameBuf[CLICK_NAME_MAX_LEN + 1] = {0};
 
-        // 1. First check if binary rodata signature has a custom flashed name
+        // 1. Check if binary rodata signature has a custom flashed name that differs from default "CLICKER"
+        bool hasPatchedName = false;
+        char patchedName[CLICK_NAME_MAX_LEN + 1] = {0};
         if (strncmp(g_device_name_signature.prefix, CLICK_NAME_MAGIC_PREFIX, 15) == 0) {
             bool valid = false;
             for (int i = 0; i < CLICK_NAME_MAX_LEN; ++i) {
@@ -77,26 +79,45 @@ public:
                 }
                 if (c < 32 || c > 126) break; // non-printable ASCII
             }
-            if (valid) {
-                strncpy(nameBuf, g_device_name_signature.name, CLICK_NAME_MAX_LEN);
-                nameBuf[CLICK_NAME_MAX_LEN] = '\0';
-                return nameBuf;
+            if (valid && strcmp(g_device_name_signature.name, "CLICKER") != 0) {
+                strncpy(patchedName, g_device_name_signature.name, CLICK_NAME_MAX_LEN);
+                patchedName[CLICK_NAME_MAX_LEN] = '\0';
+                hasPatchedName = true;
             }
         }
 
-        // 2. Fallback to NVS preference if available
+        // 2. Read persistent NVS storage
         Preferences prefs;
+        String nvsName = "";
         if (prefs.begin("clicker_cfg", true)) {
-            String nvsName = prefs.getString("custom_name", "");
+            nvsName = prefs.getString("custom_name", "");
             prefs.end();
-            if (nvsName.length() > 0) {
-                strncpy(nameBuf, nvsName.c_str(), CLICK_NAME_MAX_LEN);
-                nameBuf[CLICK_NAME_MAX_LEN] = '\0';
-                return nameBuf;
-            }
         }
 
-        return "CLICKER";
+        // If the binary was explicitly flashed with a brand-new custom name,
+        // persist it into NVS immediately so future reflashes without a name never erase it!
+        if (hasPatchedName) {
+            if (nvsName != patchedName) {
+                setCustomName(patchedName);
+            }
+            strncpy(nameBuf, patchedName, CLICK_NAME_MAX_LEN);
+            nameBuf[CLICK_NAME_MAX_LEN] = '\0';
+            return nameBuf;
+        }
+
+        // 3. Fallback to NVS preference if available (PRESERVE custom name across unpatched reflashes!)
+        if (nvsName.length() > 0 && nvsName != "CLICKER") {
+            strncpy(nameBuf, nvsName.c_str(), CLICK_NAME_MAX_LEN);
+            nameBuf[CLICK_NAME_MAX_LEN] = '\0';
+            return nameBuf;
+        }
+
+        // 4. Default fallback: Unique name derived from chip ID instead of generic "CLICKER"
+        String uid = getID();
+        String defaultName = "Click-" + (uid.length() >= 4 ? uid.substring(uid.length() - 4) : uid);
+        strncpy(nameBuf, defaultName.c_str(), CLICK_NAME_MAX_LEN);
+        nameBuf[CLICK_NAME_MAX_LEN] = '\0';
+        return nameBuf;
     }
 
     static void setCustomName(const char* newName) {

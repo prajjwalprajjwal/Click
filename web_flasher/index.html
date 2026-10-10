@@ -13,8 +13,8 @@
     href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=Rajdhani:wght@500;600;700&display=swap"
     rel="stylesheet">
 
-  <link rel="stylesheet" href="style.css">
-  <link rel="stylesheet" href="rp2350-flash.css">
+  <link rel="stylesheet" href="style.css?v=5">
+  <link rel="stylesheet" href="rp2350-flash.css?v=5">
 
   
 
@@ -64,7 +64,8 @@
             <label for="version-select" class="form-label">Release Version</label>
             <div class="select-wrapper">
               <select id="version-select" class="select-custom" aria-label="Select Firmware Release">
-                <option value="v0.1.0">v0.1.0 (Latest Stable)</option>
+                <option value="v0.1.1">v0.1.1 (Latest Stable)</option>
+                <option value="v0.1.0">v0.1.0</option>
                 <option value="v0.0.1">v0.0.1</option>
               </select>
               <div class="select-arrow">
@@ -92,11 +93,50 @@
           </div>
         </div>
 
-        <!-- Serial Port Advisory -->
-        <div
-          style="background:rgba(0, 240, 255, 0.05);border:1px solid rgba(0, 240, 255, 0.25);border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1rem;font-size:0.82rem;color:var(--text-secondary);">
-          <strong style="color:var(--accent-cyan);">Important:</strong> Close VS Code's <strong>Serial Monitor</strong>,
-          PlatformIO terminal, or any active COM port tools before clicking below to prevent connection conflicts.
+        <!-- Device Name -->
+        <div class="form-group" style="margin-top: 1rem;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.45rem;">
+            <label for="device-name-input" class="form-label" style="margin-bottom: 0;">Device Name</label>
+            <button
+              type="button"
+              id="btn-detect-device-name"
+              class="btn-detect"
+              title="Connect over USB to auto-detect device name"
+            >
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <polyline points="23 4 23 10 17 10"></polyline>
+                <path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"></path>
+              </svg>
+              <span id="btn-detect-text">Detect Device</span>
+            </button>
+          </div>
+          <input
+            type="text"
+            id="device-name-input"
+            class="input-custom"
+            placeholder="e.g. Click-6927 (auto-detected on connect)"
+            maxlength="20"
+            autocomplete="off"
+            spellcheck="false"
+            style="width: 100%; display: block; box-sizing: border-box; background: var(--bg-inset, #121214); color: var(--text-primary, #fafafa); border: 1px solid var(--border-default, rgba(63, 63, 70, 0.45)); border-radius: var(--radius-sm, 6px); padding: 0.75rem 1rem; font-size: 1.05rem; font-family: var(--font-display, 'Rajdhani', sans-serif); font-weight: 600; letter-spacing: 0.02em; outline: none;"
+          />
+          <div id="device-name-status" style="display: none; margin-top: 0.4rem; font-size: 0.84rem; font-family: var(--font-sans); align-items: center; gap: 0.35rem; color: var(--accent-emerald, #34d399);">
+            <span class="status-indicator-dot" style="width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block;"></span>
+            <span id="device-name-status-text"></span>
+          </div>
+        </div>
+
+        <!-- Factory Wipe (Full-Width Matching Bar) -->
+        <div class="form-group" style="margin-bottom: 1.35rem;">
+          <label for="factory-wipe-checkbox" class="wipe-option-row">
+            <input type="checkbox" id="factory-wipe-checkbox" class="custom-checkbox-input">
+            <span class="custom-checkbox-box">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                <polyline points="20 6 9 17 4 12"></polyline>
+              </svg>
+            </span>
+            <span class="wipe-option-text">Factory wipe (erase all data)</span>
+          </label>
         </div>
 
         
@@ -326,6 +366,42 @@
             Telemetry verified directly from local NVS memory partition.
           </div>
         </div>
+      </div>
+    </section>
+
+    <!-- Release History / Direct Firmware Downloads Section -->
+    <section id="manual-downloads-section" style="margin-top: 1rem; margin-bottom: 2.5rem;">
+      <div style="text-align: center; margin-bottom: 1.75rem;">
+        <h2 class="section-title" style="justify-content: center;">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+            <polyline points="7 10 12 15 17 10"></polyline>
+            <line x1="12" y1="15" x2="12" y2="3"></line>
+          </svg>
+          <span>Firmware Release History & Manual Downloads</span>
+        </h2>
+        <p class="section-desc" style="max-width: 680px; margin: 0.35rem auto 0;">
+          Download pre-compiled binaries for offline deployment or manual flashing.
+        </p>
+        <p style="font-size: 0.82rem; color: var(--text-muted); margin-top: 0.45rem;">
+          <strong>UF2</strong>: RP2354 USB drag-and-drop &bull; <strong>firmware.bin</strong>: App update (keeps data) &bull; <strong>factory.bin</strong>: Full wipe restore
+        </p>
+      </div>
+
+      <!-- Releases Table Card -->
+      <div class="releases-table-wrapper" style="box-shadow: 0 8px 32px rgba(0,0,0,0.36);">
+        <table class="releases-table">
+          <thead>
+            <tr>
+              <th style="padding: 0.85rem 1.25rem;">Version</th>
+              <th style="padding: 0.85rem 1.25rem;">Target</th>
+              <th style="padding: 0.85rem 1.25rem; text-align: right;">Downloads</th>
+            </tr>
+          </thead>
+          <tbody id="releases-tbody">
+            <!-- Populated dynamically by app.js from versions.json -->
+          </tbody>
+        </table>
       </div>
     </section>
 

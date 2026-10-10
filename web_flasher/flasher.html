@@ -1078,12 +1078,7 @@
           </div>
         </div>
 
-        <!-- Serial Port Advisory -->
-        <div
-          style="background:rgba(0, 240, 255, 0.05);border:1px solid rgba(0, 240, 255, 0.25);border-radius:8px;padding:0.75rem 0.9rem;margin-bottom:1.25rem;font-size:0.82rem;color:var(--click-text-secondary);">
-          <strong style="color:var(--click-cyan);">Important:</strong> Close VS Code's <strong>Serial Monitor</strong>
-          or active terminals before clicking below to avoid COM port locking.
-        </div>
+
 
         <!-- ESP Web Tools Install Button Custom Element -->
         <div>
@@ -1523,14 +1518,21 @@
           const response = await origFetch.apply(this, args);
           if (url.includes('firmware.bin')) {
             try {
-              const nameToUse = window._customHardwareName || 'CLICKER';
-              const buf = await response.arrayBuffer();
-              const patchedBuf = await patchFirmwareCustomName(buf, nameToUse);
-              return new Response(patchedBuf, {
-                status: response.status,
-                statusText: response.statusText,
-                headers: response.headers,
-              });
+              let nameToUse = window._customHardwareName;
+              if (!nameToUse || nameToUse === 'CLICKER') {
+                nameToUse = localStorage.getItem('click_name_' + (window._currentChipId || ''))
+                         || localStorage.getItem('click_last_device_name')
+                         || '';
+              }
+              if (nameToUse && nameToUse !== 'CLICKER') {
+                const buf = await response.arrayBuffer();
+                const patchedBuf = await patchFirmwareCustomName(buf, nameToUse);
+                return new Response(patchedBuf, {
+                  status: response.status,
+                  statusText: response.statusText,
+                  headers: response.headers,
+                });
+              }
             } catch (err) {
               console.error('[Web Flasher] Error patching firmware binary:', err);
               return response;
@@ -2354,7 +2356,11 @@
               if (!this._hasStartedFlashing && this._state === 'INSTALL' && !this._installConfirmed && this.shadowRoot) {
                 const contentDiv = this.shadowRoot.querySelector('div[slot="content"]');
                 if (contentDiv && !contentDiv.querySelector('#modal-mode-menu')) {
-                  const ver = (this._manifest && this._manifest.version) ? `v${this._manifest.version}` : 'v0.1.0';
+                  const ver = (this._manifest && this._manifest.version) ? `v${this._manifest.version}` : 'v0.1.1';
+                  const savedName = window._customHardwareName 
+                                 || localStorage.getItem('click_name_' + (window._currentChipId || '')) 
+                                 || localStorage.getItem('click_last_device_name') 
+                                 || '';
                   contentDiv.innerHTML = `
                     <div class="modal-cyber-badge" id="modal-pill-container" title="Click to name your hardware">
                       <span class="pulse-emerald-dot"></span>
@@ -2363,7 +2369,7 @@
                         id="modal-hardware-name-input"
                         class="modal-hardware-name-input"
                         placeholder="Name your Click"
-                        value="${window._customHardwareName || ''}"
+                        value="${savedName}"
                         maxlength="20"
                         autocomplete="off"
                         spellcheck="false"
@@ -2433,7 +2439,14 @@
                   const nameInput = contentDiv.querySelector('#modal-hardware-name-input');
                   if (nameInput) {
                     nameInput.addEventListener('input', (e) => {
-                      window._customHardwareName = e.target.value.trim();
+                      const val = e.target.value.trim();
+                      window._customHardwareName = val;
+                      if (val && val !== 'CLICKER') {
+                        localStorage.setItem('click_last_device_name', val);
+                        if (window._currentChipId) {
+                          localStorage.setItem('click_name_' + window._currentChipId, val);
+                        }
+                      }
                     });
                     nameInput.addEventListener('click', (e) => {
                       e.stopPropagation();
@@ -2859,6 +2872,12 @@
 
             const deviceName = statsData.name || 'CLICKER';
             const deviceChipId = statsData.chip_id || statsData.uuid || '--';
+            window._currentChipId = deviceChipId;
+            if (deviceName && deviceName !== 'CLICKER') {
+              window._customHardwareName = deviceName;
+              localStorage.setItem('click_name_' + deviceChipId, deviceName);
+              localStorage.setItem('click_last_device_name', deviceName);
+            }
             const deviceClicks = Number(statsData.clicks || 0);
             const deviceFlappy = Number(statsData.flappy !== undefined ? statsData.flappy : (statsData.flappy_high || 0));
             const deviceJustTen = Number(statsData.just_ten !== undefined ? statsData.just_ten : (statsData.just_ten_time || 0));

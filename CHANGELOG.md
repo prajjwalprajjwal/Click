@@ -33,6 +33,16 @@
 
 ## Release History & Changes
 
+### [v0.1.1] - 2026-10-10
+
+- **Persistent Custom Device Name Preservation Across Reflashes**:
+  - **NVS-First Precedence & Auto-Persistence**: Updated `DeviceInfo::getCustomName()` so that whenever a custom name is flashed or set, it is immediately written to non-volatile storage (`clicker_cfg` -> `custom_name`). Subsequent reflashes with standard/unpatched binaries (where `g_device_name_signature` contains default `"CLICKER"`) no longer overwrite or mask the user's custom name.
+  - **Serial Command Name Management**: Added `SET_NAME=<name>` and `RENAME <name>` serial command support in `firmware/src/main.cpp`, plus support for `NAME=` in `RESTORE` and `SET_STATS`. Preserves original casing.
+  - **Web Flasher Cache & Memory**: Updated `web_flasher/app.js`, `flasher.html`, and `rp2350-flash.js` to cache device custom names in `localStorage` keyed by hardware unique ID (`click_name_<chip_id>`). When connecting or flashing, the modal input is automatically pre-filled with the device's existing name rather than resetting to blank or `"CLICKER"`.
+  - **Cloudflare Worker D1 Leaderboard Protection**: Updated `/api/sync` in `server/worker.js` so that if an incoming sync request reports default `"CLICKER"`, any existing established custom name in the D1 database is preserved and returned, preventing leaderboard name wipes.
+- **Dual-Target Release Automation (RP2354A + ESP32)**:
+  - Enhanced `tools/release/release_manager.py` to compile both `rp2354` and `esp32doit-devkit-v1` targets, package `firmware.uf2` into `web_flasher/releases/v0.1.1/` alongside `firmware.bin` and `factory_firmware.bin`, and synchronize `versions.json`.
+
 ### [v1.0.4] - 2026-10-05
 
 - **Same-Button Double-Click Wake Protection**:

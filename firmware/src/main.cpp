@@ -184,7 +184,7 @@ void setup() {
 
     const char* bootName = DeviceInfo::getCustomName();
     if (!bootName || bootName[0] == '\0') {
-        bootName = "CLICKER";
+        bootName = "Click";
     }
 
     const GFXfont* nameFont = &Rajdhani24pt7b;
@@ -264,13 +264,15 @@ void setup() {
 static void handleSerialTelemetry() {
     if (!Serial.available()) return;
     static char cmdBuf[64];
+    static char rawCmdBuf[64];
     static uint8_t cmdIdx = 0;
     while (Serial.available()) {
         char c = static_cast<char>(Serial.read());
         if (c == '\n' || c == '\r') {
             if (cmdIdx > 0) {
                 cmdBuf[cmdIdx] = '\0';
-                // Case-insensitive uppercase conversion
+                memcpy(rawCmdBuf, cmdBuf, cmdIdx + 1);
+                // Case-insensitive uppercase conversion for cmdBuf commands
                 for (uint8_t i = 0; i < cmdIdx; i++) {
                     if (cmdBuf[i] >= 'a' && cmdBuf[i] <= 'z') {
                         cmdBuf[i] -= 32;
@@ -284,7 +286,7 @@ static void handleSerialTelemetry() {
                     const char* chipId = idStr.c_str();
                     const char* dName = DeviceInfo::getCustomName();
                     if (!dName || dName[0] == '\0') {
-                        dName = "CLICKER";
+                        dName = "Click";
                     }
 
                     uint64_t clicks = counterApplet.getLifetimeClicks();
@@ -294,6 +296,20 @@ static void handleSerialTelemetry() {
 
                     Serial.printf("{\"event\":\"stats\",\"name\":\"%s\",\"chip_id\":\"%s\",\"clicks\":%llu,\"flappy\":%u,\"just_ten\":%.4f,\"uptime_hrs\":%u}\n",
                                   dName, chipId, clicks, flappy, justTen, uptimeHrs);
+                } else if (strstr(cmdBuf, "SET_NAME") != nullptr || strstr(cmdBuf, "RENAME") != nullptr) {
+                    char* p = strstr(cmdBuf, "SET_NAME");
+                    uint8_t kwLen = p ? 8 : 6;
+                    if (!p) p = strstr(cmdBuf, "RENAME");
+                    int offset = (p - cmdBuf) + kwLen;
+                    char* rawP = rawCmdBuf + offset;
+                    while (*rawP == ' ' || *rawP == '=') rawP++;
+                    char* end = rawP;
+                    while (*end && *end != '\r' && *end != '\n') end++;
+                    *end = '\0';
+                    if (strlen(rawP) > 0) {
+                        DeviceInfo::setCustomName(rawP);
+                        Serial.printf("{\"event\":\"name_updated\",\"name\":\"%s\"}\n", DeviceInfo::getCustomName());
+                    }
                 } else if (strstr(cmdBuf, "SET_CLICKS") != nullptr) {
                     char* p = strstr(cmdBuf, "SET_CLICKS") + 10;
                     while (*p == ' ' || *p == '=') p++;
@@ -303,6 +319,19 @@ static void handleSerialTelemetry() {
                         Serial.printf("{\"event\":\"clicks_updated\",\"clicks\":%llu}\n", val);
                     }
                 } else if (strstr(cmdBuf, "SET_STATS") != nullptr || strstr(cmdBuf, "RESTORE") != nullptr) {
+                    char* pName = strstr(cmdBuf, "NAME=");
+                    if (pName) {
+                        int nameOffset = (pName - cmdBuf) + 5;
+                        char* rawName = rawCmdBuf + nameOffset;
+                        char* end = rawName;
+                        while (*end && *end != ' ' && *end != ',' && *end != '\r' && *end != '\n') end++;
+                        char saved = *end;
+                        *end = '\0';
+                        if (strlen(rawName) > 0) {
+                            DeviceInfo::setCustomName(rawName);
+                        }
+                        *end = saved;
+                    }
                     char* pClicks = strstr(cmdBuf, "CLICKS=");
                     if (pClicks) {
                         uint64_t val = strtoull(pClicks + 7, nullptr, 10);
@@ -322,7 +351,8 @@ static void handleSerialTelemetry() {
                             timingGameApplet.setBestTimeUs(static_cast<uint32_t>(sec * 1000000.0));
                         }
                     }
-                    Serial.printf("{\"event\":\"stats_restored\",\"clicks\":%llu,\"flappy\":%u,\"just_ten\":%.4f}\n",
+                    Serial.printf("{\"event\":\"stats_restored\",\"name\":\"%s\",\"clicks\":%llu,\"flappy\":%u,\"just_ten\":%.4f}\n",
+                                  DeviceInfo::getCustomName(),
                                   counterApplet.getLifetimeClicks(),
                                   flappyBirdApplet.getHighScore(),
                                   timingGameApplet.getBestTimeSec());

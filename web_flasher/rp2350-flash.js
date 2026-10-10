@@ -203,18 +203,54 @@ document.addEventListener('DOMContentLoaded', () => {
             const flashBuffer = uf2ToFlashBuffer(new Uint8Array(uf2Buffer));
             
             let finalBuffer = flashBuffer.data;
-            if (window.patchFirmwareCustomName && window._customHardwareName) {
-                const patched = await window.patchFirmwareCustomName(finalBuffer.buffer, window._customHardwareName);
-                finalBuffer = new Uint8Array(patched);
+
+            // Read device name from UI input, window variable, or cached storage
+            const nameInput = document.getElementById('device-name-input');
+            const enteredName = nameInput ? nameInput.value.trim() : '';
+
+            // Only patch if a custom name is explicitly provided and is NOT generic "CLICKER"
+            let nameToUse = enteredName || window._customHardwareName || '';
+            if (nameToUse.toUpperCase() === 'CLICKER') {
+                nameToUse = '';
             }
 
-            if (statusEl) statusEl.textContent = 'Flashing... Do not disconnect!';
+            if (window.patchFirmwareCustomName && nameToUse) {
+                console.info(`[RP2350 Flasher] Patching custom device name "${nameToUse}" into firmware image...`);
+                const patched = await window.patchFirmwareCustomName(finalBuffer.buffer, nameToUse);
+                finalBuffer = new Uint8Array(patched);
+            } else {
+                console.info('[RP2350 Flasher] No custom name change requested; firmware remains unpatched so existing NVS name or unique ID Click-<last4> is preserved.');
+            }
+
+            // Check optional Full Factory Wipe checkbox
+            const wipeCheckbox = document.getElementById('factory-wipe-checkbox');
+            const shouldFactoryWipe = Boolean(wipeCheckbox && wipeCheckbox.checked);
+
+            if (shouldFactoryWipe) {
+                if (statusEl) statusEl.textContent = 'Performing full factory wipe (erasing flash)...';
+                console.info('[RP2350 Flasher] Factory wipe requested. Erasing 2MB flash space...');
+                await picoboot.flashErase(0x10000000, 2 * 1024 * 1024);
+            }
+
+            if (statusEl) statusEl.textContent = 'Flashing firmware... Do not disconnect!';
             await picoboot.flashEraseAndWrite(flashBuffer.address, finalBuffer);
 
             if (statusEl) statusEl.textContent = 'Rebooting...';
             await picoboot.getConnection().reboot(500);
             
-            if (statusEl) statusEl.textContent = 'Flash Complete! Success!';
+            // Persist custom name to local storage across reflashes
+            if (nameToUse && nameToUse.toUpperCase() !== 'CLICKER') {
+                localStorage.setItem('click_last_device_name', nameToUse);
+                if (window._currentChipId) {
+                    localStorage.setItem('click_name_' + window._currentChipId, nameToUse);
+                }
+            }
+
+            if (statusEl) {
+                statusEl.textContent = shouldFactoryWipe
+                    ? 'Flash Complete! Clean factory install successful!'
+                    : 'Flash Complete! Success (stats preserved)!';
+            }
         } catch (error) {
             console.error(error);
             if (statusEl) statusEl.textContent = 'Error: ' + error.message;

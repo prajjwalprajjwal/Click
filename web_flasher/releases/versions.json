@@ -1,6 +1,17 @@
 {
-  "latest": "v0.1.0",
+  "latest": "v0.1.1",
   "releases": [
+    {
+      "tag": "v0.1.1",
+      "version": "0.1.1",
+      "name": "Clicker Device Firmware",
+      "manifest": "releases/v0.1.1/manifest.json",
+      "bin": "releases/v0.1.1/firmware.bin",
+      "factory_bin": "releases/v0.1.1/factory_firmware.bin",
+      "size": 582624,
+      "factory_size": 648160,
+      "is_latest": true
+    },
     {
       "tag": "v0.1.0",
       "version": "0.1.0",
@@ -8,9 +19,9 @@
       "manifest": "releases/v0.1.0/manifest.json",
       "bin": "releases/v0.1.0/firmware.bin",
       "factory_bin": "releases/v0.1.0/factory_firmware.bin",
-      "size": 571552,
-      "factory_size": 637088,
-      "is_latest": true
+      "size": 579184,
+      "factory_size": 644720,
+      "is_latest": false
     },
     {
       "tag": "v0.0.1",

@@ -136,10 +136,10 @@ def prompt_version_bump(current_ver: str) -> str:
 
 
 def build_firmware(pio_cmd: str) -> bool:
-    print("\n[1/4] Compiling ESP32 firmware with PlatformIO...")
-    cmd = [pio_cmd, "run", "-e", "esp32doit-devkit-v1"]
-    res = subprocess.run(cmd, cwd=str(ROOT))
-    return res.returncode == 0
+    print("\n[1/4] Compiling firmware for all targets (RP2354 & ESP32)...")
+    res1 = subprocess.run([pio_cmd, "run", "-e", "rp2354"], cwd=str(ROOT))
+    res2 = subprocess.run([pio_cmd, "run", "-e", "esp32doit-devkit-v1"], cwd=str(ROOT))
+    return res1.returncode == 0 and res2.returncode == 0
 
 
 def merge_factory_binary(target_dir: Path) -> Path:
@@ -304,7 +304,7 @@ def package_release(new_version: str, max_releases: int = 5) -> Path:
             except Exception:
                 pass
 
-        all_releases.append({
+        entry = {
             "tag": d.name,
             "version": m_ver,
             "name": m_name,
@@ -314,7 +314,12 @@ def package_release(new_version: str, max_releases: int = 5) -> Path:
             "size": bin_file.stat().st_size if bin_file.exists() else 0,
             "factory_size": f_bin.stat().st_size if f_bin.exists() else 0,
             "is_latest": (d.name == folder_name),
-        })
+        }
+        uf2_file = d / "firmware.uf2"
+        if uf2_file.exists():
+            entry["uf2"] = f"releases/{d.name}/firmware.uf2"
+            entry["uf2_size"] = uf2_file.stat().st_size
+        all_releases.append(entry)
 
     versions_json = {
         "latest": folder_name,
@@ -332,6 +337,11 @@ def package_release(new_version: str, max_releases: int = 5) -> Path:
         shutil.copy2(target_dir / "firmware.bin", WEB_FLASHER_DIR / "firmware.bin")
         shutil.copy2(target_dir / "factory_firmware.bin", WEB_FLASHER_DIR / "factory_firmware.bin")
         shutil.copy2(target_dir / "manifest.json", WEB_FLASHER_DIR / "manifest.json")
+        rp_uf2 = ROOT / ".pio" / "build" / "rp2354" / "firmware.uf2"
+        if rp_uf2.exists():
+            shutil.copy2(rp_uf2, target_dir / "firmware.uf2")
+            shutil.copy2(rp_uf2, WEB_FLASHER_DIR / "firmware.uf2")
+            print(f"  + Copied RP2354 firmware.uf2 ({rp_uf2.stat().st_size} bytes)")
         if bootloader_bin.exists():
             shutil.copy2(bootloader_bin, WEB_FLASHER_DIR / "bootloader.bin")
         if partitions_bin.exists():

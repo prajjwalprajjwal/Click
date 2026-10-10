@@ -323,10 +323,16 @@ export default {
           }
           const newJustTenMs = newJustTenTime > 0 ? Math.round(Math.abs(newJustTenTime - 10.0) * 1000) : 0;
 
+          // Preserve established custom name if incoming name is default 'CLICKER' or empty
+          let finalDeviceName = deviceName;
+          if ((!finalDeviceName || finalDeviceName === 'CLICKER') && existing && existing.device_name && existing.device_name !== 'CLICKER') {
+            finalDeviceName = existing.device_name;
+          }
+
           await db.batch([
             db.prepare(
               "UPDATE devices SET device_name = ?, total_clicks = ?, last_synced_clicks = ?, last_synced_at = CURRENT_TIMESTAMP, flappy_high_score = ?, just_ten_time = ?, just_ten_best_ms = ?, uptime_hrs = MAX(uptime_hrs, ?) WHERE chip_id = ?"
-            ).bind(deviceName, newTotalClicks, clicks, newFlappy, newJustTenTime, newJustTenMs, uptimeHrs, chipId),
+            ).bind(finalDeviceName, newTotalClicks, clicks, newFlappy, newJustTenTime, newJustTenMs, uptimeHrs, chipId),
             db.prepare(
               "UPDATE global_stats SET total_boulder_clicks = total_boulder_clicks + ?, last_updated = CURRENT_TIMESTAMP WHERE id = 1"
             ).bind(creditedDelta),
@@ -342,14 +348,16 @@ export default {
         ).first();
 
         const latestDevice = await db.prepare(
-          "SELECT total_clicks, flappy_high_score, just_ten_time FROM devices WHERE chip_id = ?"
+          "SELECT device_name, total_clicks, flappy_high_score, just_ten_time FROM devices WHERE chip_id = ?"
         ).bind(chipId).first();
+
+        const responseName = latestDevice ? latestDevice.device_name : (deviceName || "CLICKER");
 
         return new Response(
           JSON.stringify({
             success: true,
             chip_id: chipId,
-            device_name: deviceName,
+            device_name: responseName,
             credited_delta: creditedDelta,
             total_boulder_clicks: updatedGlobal ? updatedGlobal.total_boulder_clicks : 0,
             cloud_clicks: latestDevice ? latestDevice.total_clicks : clicks,
