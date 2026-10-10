@@ -68,7 +68,7 @@ let ch340Reassured = sessionStorage.getItem('flasher_ch340_reassured') === 'true
 window._customHardwareName = '';
 window.patchFirmwareCustomName = patchFirmwareCustomName;
 
-async function patchFirmwareCustomName(arrayBuffer, newName) {
+async function patchFirmwareCustomName(arrayBuffer, newName, isEsp32 = false) {
   const bytes = new Uint8Array(arrayBuffer);
   const prefixStr = '__CLICK_NAME__:';
   const suffixStr = ':__END_NAME___';
@@ -127,18 +127,18 @@ async function patchFirmwareCustomName(arrayBuffer, newName) {
     bytes[nameOffset + i] = newBytes[i];
   }
 
-  // Update 1-byte checksum at len - 33
-  if (bytes.length >= 33) {
-    bytes[bytes.length - 33] ^= deltaXor;
-  }
-
-  // Recalculate SHA-256 hash across [0, len - 32]
-  if (window.crypto && window.crypto.subtle && bytes.length >= 32) {
-    const dataToHash = bytes.subarray(0, bytes.length - 32);
-    const hashBuf = await window.crypto.subtle.digest('SHA-256', dataToHash);
-    const hashArr = new Uint8Array(hashBuf);
-    bytes.set(hashArr, bytes.length - 32);
-    console.info('[Web Flasher] Checksum & SHA-256 digest updated.');
+  // Only update checksum & SHA-256 for ESP32 binaries; RP2350 uses flat ARM UF2 image without SHA-256 trailer!
+  if (isEsp32) {
+    if (bytes.length >= 33) {
+      bytes[bytes.length - 33] ^= deltaXor;
+    }
+    if (window.crypto && window.crypto.subtle && bytes.length >= 32) {
+      const dataToHash = bytes.subarray(0, bytes.length - 32);
+      const hashBuf = await window.crypto.subtle.digest('SHA-256', dataToHash);
+      const hashArr = new Uint8Array(hashBuf);
+      bytes.set(hashArr, bytes.length - 32);
+      console.info('[Web Flasher] ESP32 Checksum & SHA-256 digest updated.');
+    }
   }
 
   return bytes.buffer;
@@ -160,7 +160,7 @@ if (!window._flasherFetchHooked) {
         }
         if (nameToUse) {
           const buf = await response.arrayBuffer();
-          const patchedBuf = await patchFirmwareCustomName(buf, nameToUse);
+          const patchedBuf = await patchFirmwareCustomName(buf, nameToUse, true);
           return new Response(patchedBuf, {
             status: response.status,
             statusText: response.statusText,
@@ -1624,11 +1624,34 @@ function updateDeviceNameStatus(msg, type = 'info') {
   }
 }
 
-async function queryDeviceSerialTelemetry(port) {
+window.syncDeviceTelemetry = syncDeviceTelemetry;
+
+async function syncDeviceTelemetry(port, { interactive = false, customNewName = null } = {}) {
+  if (!port) return null;
+
   let reader = null;
   let writer = null;
+  let openedByUs = false;
+
+  const LEADERBOARD_API_URL = window._LEADERBOARD_API_URL || "https://click-leaderboard-api.emailprajjwal.workers.dev";
+  const statusMsg = document.getElementById('sync-status-msg');
+  const hud = document.getElementById('sync-telemetry-hud');
+  const hudStatus = document.getElementById('hud-status');
+  const hudName = document.getElementById('hud-name');
+  const hudClicks = document.getElementById('hud-clicks');
+  const hudFlappy = document.getElementById('hud-flappy');
+  const hudJustTen = document.getElementById('hud-just-ten');
+  const hudUuid = document.getElementById('hud-uuid');
+
   try {
-    await port.open({ baudRate: 115200 });
+    if (!port.readable) {
+      await port.open({ baudRate: 115200 });
+      openedByUs = true;
+    }
+    try {
+      await port.setSignals({ dataTerminalReady: true, requestToSend: false });
+    } catch (sigErr) {}
+
     const encoder = new TextEncoder();
     const decoder = new TextDecoder();
     reader = port.readable.getReader();
@@ -1666,35 +1689,148 @@ async function queryDeviceSerialTelemetry(port) {
       } catch (e) {}
     })();
 
-    // Issue GET_STATS up to 3 times
-    for (let i = 0; i < 3 && !statsData; i++) {
+    async function sendCommand(cmdStr) {
+      if (!writer) return;
+      await writer.write(encoder.encode(cmdStr));
+    }
+
+    // If caller specified a new custom name, send SET_NAME over serial so device NVS is updated!
+    if (customNewName && customNewName.trim().length > 0 && customNewName.toUpperCase() !== 'CLICKER') {
       try {
-        await writer.write(encoder.encode("\r\nGET_STATS\r\n"));
+        await sendCommand(`\r\nSET_NAME ${customNewName.trim()}\r\n`);
+        await new Promise(r => setTimeout(r, 60));
       } catch (e) {}
-      const start = Date.now();
-      while (Date.now() - start < 350 && !statsData) {
+    }
+
+    // Query GET_STATS with retry attempts
+    const queryStart = Date.now();
+    let attempt = 1;
+    while (!statsData && (Date.now() - queryStart < 5000)) {
+      if (attempt === 3 && !statsData) {
+        try {
+          await port.setSignals({ dataTerminalReady: false, requestToSend: true });
+          await new Promise(r => setTimeout(r, 100));
+          await port.setSignals({ dataTerminalReady: true, requestToSend: false });
+          await new Promise(r => setTimeout(r, 200));
+        } catch (e) {}
+      }
+      try {
+        await sendCommand("\r\nGET_STATS\r\n");
+      } catch (e) {}
+      const sliceStart = Date.now();
+      while (Date.now() - sliceStart < 350) {
+        if (statsData) break;
         await new Promise(r => setTimeout(r, 35));
       }
+      attempt++;
     }
 
     stopReading = true;
     try { await reader.cancel(); } catch (e) {}
     await readPromise;
+    try { reader.releaseLock(); } catch (e) {}
+    try { writer.releaseLock(); } catch (e) {}
+    reader = null;
+    writer = null;
+
+    if (openedByUs) {
+      try { await port.close(); } catch (e) {}
+    }
+
+    if (!statsData) {
+      console.warn('[Web Flasher] Telemetry query timed out.');
+      return null;
+    }
+
+    // 1. Resolve Device Name
+    let deviceName = (statsData.name || '').trim();
+    const deviceChipId = statsData.chip_id || statsData.uuid || '--';
+    window._currentChipId = deviceChipId;
+
+    if (!deviceName || deviceName.toUpperCase() === 'CLICKER') {
+      const last4 = deviceChipId !== '--' && deviceChipId.length >= 4 ? deviceChipId.slice(-4).toUpperCase() : '8F2B';
+      deviceName = 'Click-' + last4;
+    }
+    window._detectedHardwareName = deviceName;
+
+    // Fill UI Device Name if not manually edited
+    const nameInput = document.getElementById('device-name-input');
+    if (!window._userManuallyEditedName) {
+      window._customHardwareName = deviceName;
+      if (nameInput) {
+        nameInput.value = deviceName;
+      }
+      localStorage.setItem('click_name_' + deviceChipId, deviceName);
+      localStorage.setItem('click_last_device_name', deviceName);
+      updateDeviceNameStatus(`Connected: ${deviceName}`, 'success');
+    }
+
+    const deviceClicks = Number(statsData.clicks || 0);
+    const deviceFlappy = Number(statsData.flappy !== undefined ? statsData.flappy : (statsData.flappy_high || 0));
+    const deviceJustTen = Number(statsData.just_ten !== undefined ? statsData.just_ten : (statsData.just_ten_time || 0));
+    const uptimeHrs = Number(statsData.uptime_hrs || 0);
+
+    // 2. Display Telemetry in HUD
+    function maskHardwareId(id) {
+      if (!id || id === 'Hardware ID' || id === '--') return '--';
+      const clean = String(id).replace(/[^A-Za-z0-9]/g, '');
+      return clean.length >= 4 ? clean.slice(0, 2) + "......" + clean.slice(-2) : clean;
+    }
+
+    if (hud) {
+      hud.style.display = 'block';
+      if (hudName) hudName.textContent = deviceName;
+      if (hudClicks) hudClicks.textContent = deviceClicks.toLocaleString();
+      if (hudFlappy) hudFlappy.textContent = deviceFlappy.toLocaleString();
+      if (hudJustTen) hudJustTen.textContent = deviceJustTen > 0 ? `${deviceJustTen.toFixed(4)}s` : 'No Record';
+      if (hudUuid) hudUuid.textContent = maskHardwareId(deviceChipId);
+    }
+
+    // 3. AUTO-SYNC TO GLOBAL LEADERBOARD BACKEND!
+    try {
+      console.info(`[Web Flasher] Auto-syncing stats to global leaderboard for "${deviceName}" (${deviceClicks} clicks)...`);
+      const resp = await fetch(`${LEADERBOARD_API_URL}/api/sync`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          chip_id: deviceChipId,
+          name: deviceName,
+          clicks: deviceClicks,
+          flappy: deviceFlappy,
+          just_ten: deviceJustTen,
+          just_ten_time: deviceJustTen,
+          uptime_hrs: uptimeHrs
+        })
+      });
+
+      if (resp.ok) {
+        console.info('[Web Flasher] Auto-sync to leaderboard successful!');
+        if (hudStatus) {
+          hudStatus.textContent = 'AUTO-SYNCED TO GLOBAL LEADERBOARD ✓';
+          hudStatus.style.color = '#34d399';
+        }
+        if (statusMsg) {
+          statusMsg.style.color = '#34d399';
+          statusMsg.textContent = `✓ Auto-synced "${deviceName}" (${deviceClicks.toLocaleString()} clicks) to global leaderboard!`;
+        }
+      }
+    } catch (syncErr) {
+      console.warn('[Web Flasher] Leaderboard sync fetch error:', syncErr);
+    }
+
     return statsData;
-  } finally {
-    if (reader) {
-      try { reader.releaseLock(); } catch (e) {}
-    }
-    if (writer) {
-      try { writer.releaseLock(); } catch (e) {}
-    }
-    try { await port.close(); } catch (e) {}
+  } catch (err) {
+    console.warn('[Web Flasher] Telemetry read error:', err);
+    if (reader) { try { reader.releaseLock(); } catch (e) {} }
+    if (writer) { try { writer.releaseLock(); } catch (e) {} }
+    if (openedByUs && port) { try { await port.close(); } catch (e) {} }
+    return null;
   }
 }
 
 async function queryAndFillDevice({ interactive = false } = {}) {
   // CRITICAL RULE: "change it only when manually changed"
-  // If user has already manually typed in the field, DO NOT overwrite unless they explicitly clicked the Detect button!
+  // If user has already manually typed in the field, DO NOT overwrite unless they explicitly clicked the Detect button or pressed Enter!
   if (window._userManuallyEditedName && !interactive) {
     console.debug('[Web Flasher] Skipping auto-detect because name was manually edited by user.');
     return;
@@ -1732,45 +1868,21 @@ async function queryAndFillDevice({ interactive = false } = {}) {
 
   if (!port) return;
 
-  if (btnText) btnText.textContent = 'Detecting...';
+  if (btnText) btnText.textContent = 'Syncing...';
   if (btnDetect) btnDetect.disabled = true;
 
   try {
-    const statsData = await queryDeviceSerialTelemetry(port);
+    // If the user manually edited the name, pass it to syncDeviceTelemetry so it renames the device via SET_NAME!
+    const customNewName = (window._userManuallyEditedName && nameInput && nameInput.value.trim() && nameInput.value.trim().toUpperCase() !== 'CLICKER')
+      ? nameInput.value.trim()
+      : null;
+
+    const statsData = await syncDeviceTelemetry(port, { interactive, customNewName });
     if (statsData) {
-      let resolvedName = (statsData.name || '').trim();
-      const chipId = statsData.chip_id || statsData.uuid || '';
-      if (chipId) {
-        window._currentChipId = chipId;
-      }
-
-      // If device returns no name or default "CLICKER", derive unique cool name "Click-<last4>"
-      if (!resolvedName || resolvedName.toUpperCase() === 'CLICKER') {
-        const last4 = chipId && chipId.length >= 4 ? chipId.slice(-4).toUpperCase() : '8F2B';
-        resolvedName = 'Click-' + last4;
-      }
-
-      // If user clicked Detect explicitly, reset the manual edit flag
-      if (interactive) {
-        window._userManuallyEditedName = false;
-      }
-
-      if (!window._userManuallyEditedName) {
-        if (nameInput) {
-          nameInput.value = resolvedName;
-        }
-        window._customHardwareName = resolvedName;
-        window._detectedHardwareName = resolvedName;
-        if (chipId) {
-          localStorage.setItem('click_name_' + chipId, resolvedName);
-        }
-        localStorage.setItem('click_last_device_name', resolvedName);
-      }
-
-      updateDeviceNameStatus(`Connected: ${resolvedName}`, 'success');
+      window._userManuallyEditedName = false;
       if (btnDetect) btnDetect.classList.add('connected');
       if (btnText) {
-        btnText.textContent = 'Detected ✓';
+        btnText.textContent = customNewName ? 'Renamed ✓' : 'Synced ✓';
         setTimeout(() => {
           if (btnText) btnText.textContent = 'Re-detect';
         }, 2500);
@@ -1780,7 +1892,7 @@ async function queryAndFillDevice({ interactive = false } = {}) {
       updateDeviceNameStatus('Click connected on USB (ready to flash)', 'info');
     }
   } catch (err) {
-    console.warn('[Web Flasher] Error during device auto-detect:', err);
+    console.warn('[Web Flasher] Error during device auto-detect/sync:', err);
     if (btnText) btnText.textContent = 'Detect Device';
   } finally {
     if (btnDetect) btnDetect.disabled = false;
@@ -1824,6 +1936,11 @@ function initDeviceNameInput() {
   const nameInput = document.getElementById('device-name-input');
   if (!nameInput) return;
 
+  const cachedLastName = localStorage.getItem('click_last_device_name');
+  if (cachedLastName && cachedLastName.toUpperCase() !== 'CLICKER') {
+    nameInput.placeholder = `e.g. ${cachedLastName} (auto-detected on connect)`;
+  }
+
   nameInput.addEventListener('input', (e) => {
     // User has manually typed in the field!
     window._userManuallyEditedName = true;
@@ -1834,11 +1951,18 @@ function initDeviceNameInput() {
       if (window._currentChipId) {
         localStorage.setItem('click_name_' + window._currentChipId, val);
       }
-      updateDeviceNameStatus(`Custom name: "${val}" (will be applied on flash)`, 'manual');
+      updateDeviceNameStatus(`Custom name: "${val}" (press Enter or flash to apply)`, 'manual');
     } else if (val) {
       updateDeviceNameStatus('Default name will be preserved on flash', 'info');
     } else {
       updateDeviceNameStatus('Device will keep its existing name or unique ID Click-<last4>', 'info');
+    }
+  });
+
+  nameInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      queryAndFillDevice({ interactive: true });
     }
   });
 
@@ -1873,8 +1997,18 @@ function initDeviceNameInput() {
   }
 
   // Auto-detect on page load
-  setTimeout(() => {
-    queryAndFillDevice({ interactive: false });
+  setTimeout(async () => {
+    if ('serial' in navigator) {
+      const ports = await navigator.serial.getPorts().catch(() => []);
+      if (ports && ports.length > 0) {
+        queryAndFillDevice({ interactive: false });
+        return;
+      }
+    }
+    // If no ports authorized yet, show a friendly prompt
+    if (!window._detectedHardwareName && !window._userManuallyEditedName) {
+      updateDeviceNameStatus('Connect device & click "Detect Device" to sync name and stats', 'info');
+    }
   }, 150);
 }
 
@@ -1940,242 +2074,25 @@ function initSyncStats() {
       statusMsg.textContent = 'Select your Click port in the browser prompt...';
     }
 
-    let port = null;
-    let reader = null;
-
     try {
-      port = await navigator.serial.requestPort();
-      await port.open({ baudRate: 115200 });
-
+      const port = await navigator.serial.requestPort();
       syncBtn.innerHTML = `
         <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" style="animation:spin 1s linear infinite;">
           <circle cx="12" cy="12" r="10" stroke-opacity="0.25"></circle>
           <path d="M12 2a10 10 0 0 1 10 10" stroke-linecap="round"></path>
         </svg>
-        <span>Reading Telemetry...</span>
+        <span>Syncing Stats...</span>
       `;
 
-      const encoder = new TextEncoder();
-      const decoder = new TextDecoder();
-
-      let buffer = "";
-      let statsData = null;
-      let stopReading = false;
-
-      // Background reader stream
-      reader = port.readable.getReader();
-      const readPromise = (async () => {
-        try {
-          while (!stopReading) {
-            const { value, done } = await reader.read();
-            if (done) break;
-            if (value) {
-              buffer += decoder.decode(value, { stream: true });
-              const lines = buffer.split(/[\r\n]+/);
-              buffer = lines.pop() || "";
-              for (const line of lines) {
-                const trimmed = line.trim();
-                if (trimmed.includes('"event":"stats"')) {
-                  const s = trimmed.indexOf('{');
-                  const e = trimmed.lastIndexOf('}');
-                  if (s !== -1 && e > s) {
-                    try {
-                      statsData = JSON.parse(trimmed.substring(s, e + 1));
-                      stopReading = true;
-                      return;
-                    } catch (err) {}
-                  }
-                }
-              }
-            }
-          }
-        } catch (e) {
-          // Stream cancelled when finished
-        }
-      })();
-
-      async function sendCommand(cmdStr) {
-        if (!port.writable) return;
-        const w = port.writable.getWriter();
-        try {
-          await w.write(encoder.encode(cmdStr));
-        } finally {
-          w.releaseLock();
-        }
+      const stats = await window.syncDeviceTelemetry(port, { interactive: true });
+      if (!stats) {
+        throw new Error("No telemetry packet received. If this Click was flashed with older firmware, flash to firmware v0.1.0+ with telemetry support.");
       }
-
-      // Retry query every 350ms for up to 6 seconds
-      const queryStart = Date.now();
-      let attempt = 1;
-
-      while (!statsData && (Date.now() - queryStart < 6000)) {
-        if (statusMsg) {
-          statusMsg.style.color = '#38bdf8';
-          statusMsg.textContent = attempt === 1
-            ? 'Querying Click telemetry (GET_STATS)...'
-            : `Click connected. Handshake attempt ${attempt}...`;
-        }
-
-        // Only pulse RTS recovery if device fails to respond after 4 attempts (stranded in bootloader)
-        if (attempt === 4 && !statsData) {
-          try {
-            await port.setSignals({ dataTerminalReady: false, requestToSend: true });
-            await new Promise(r => setTimeout(r, 120));
-            await port.setSignals({ dataTerminalReady: false, requestToSend: false });
-            await new Promise(r => setTimeout(r, 300));
-          } catch (rstErr) {}
-        }
-
-        try {
-          await sendCommand("\r\nGET_STATS\r\n");
-        } catch (err) {}
-
-        const sliceStart = Date.now();
-        while (Date.now() - sliceStart < 350) {
-          if (statsData) break;
-          await new Promise(r => setTimeout(r, 35));
-        }
-        attempt++;
-      }
-
-      stopReading = true;
-      try { await reader.cancel(); } catch (e) {}
-      await readPromise;
-      try { reader.releaseLock(); } catch (e) {}
-      reader = null;
-
-      if (!statsData) {
-        throw new Error("No telemetry packet received. If this Click was flashed with older firmware, click 'Quick Flash' above to install firmware v0.1.0+ with telemetry support.");
-      }
-
-      function maskHardwareId(id) {
-        if (!id || id === 'Hardware ID' || id === '--') return '--';
-        const raw = String(id).trim();
-        const clean = raw.replace(/[^A-Za-z0-9]/g, '');
-        if (clean.length >= 4) {
-          return clean.slice(0, 2) + "......" + clean.slice(-2);
-        }
-        return raw;
-      }
-
-      let deviceName = (statsData.name || '').trim();
-      const deviceChipId = statsData.chip_id || statsData.uuid || '--';
-      window._currentChipId = deviceChipId;
-
-      if (!deviceName || deviceName.toUpperCase() === 'CLICKER') {
-        const last4 = deviceChipId !== '--' && deviceChipId.length >= 4 ? deviceChipId.slice(-4).toUpperCase() : '8F2B';
-        deviceName = 'Click-' + last4;
-      }
-
-      window._detectedHardwareName = deviceName;
-
-      // Only fill and update if user has NOT manually edited the input
-      if (!window._userManuallyEditedName) {
-        window._customHardwareName = deviceName;
-        const nameInput = document.getElementById('device-name-input');
-        if (nameInput) {
-          nameInput.value = deviceName;
-        }
-        localStorage.setItem('click_name_' + deviceChipId, deviceName);
-        localStorage.setItem('click_last_device_name', deviceName);
-        updateDeviceNameStatus(`Connected: ${deviceName}`, 'success');
-      }
-      const deviceClicks = Number(statsData.clicks || 0);
-      const deviceFlappy = Number(statsData.flappy !== undefined ? statsData.flappy : (statsData.flappy_high || 0));
-      const deviceJustTen = Number(statsData.just_ten !== undefined ? statsData.just_ten : (statsData.just_ten_time || 0));
-
-      // Display telemetry in HUD immediately!
-      if (hud) {
-        hud.style.display = 'block';
-        if (hudName) hudName.textContent = deviceName;
-        if (hudClicks) hudClicks.textContent = deviceClicks.toLocaleString();
-        if (hudFlappy) hudFlappy.textContent = deviceFlappy.toLocaleString();
-        if (hudJustTen) {
-          hudJustTen.textContent = deviceJustTen > 0 ? `${deviceJustTen.toFixed(4)}s` : 'No Record';
-        }
-        if (hudUuid) hudUuid.textContent = maskHardwareId(deviceChipId);
-      }
-
-      if (statusMsg) {
-        statusMsg.style.color = '#38bdf8';
-        statusMsg.textContent = `Found "${deviceName}" (${deviceClicks.toLocaleString()} clicks). Syncing all applets...`;
-      }
-
-      // Sync to cloud backend
-      let cloudSuccess = false;
-      try {
-        const resp = await fetch(`${LEADERBOARD_API_URL}/api/sync`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            chip_id: deviceChipId,
-            name: deviceName,
-            clicks: deviceClicks,
-            flappy: deviceFlappy,
-            just_ten: deviceJustTen,
-            just_ten_time: deviceJustTen,
-            uptime_hrs: Number(statsData.uptime_hrs || 0)
-          })
-        });
-
-        if (resp.ok) {
-          const result = await resp.json();
-          cloudSuccess = true;
-          // Note: Hardware counter is never overwritten on sync to respect local device state and resets.
-          if (statusMsg) {
-            statusMsg.style.color = '#34d399';
-            statusMsg.textContent = `✓ Synced! +${Number(result.credited_delta || 0).toLocaleString()} clicks added to Global Boulder! Total: ${Number(result.cloud_clicks || deviceClicks).toLocaleString()}`;
-          }
-          if (hudStatus) {
-            hudStatus.textContent = 'SYNCED TO CLOUD';
-            hudStatus.style.color = '#34d399';
-          }
-          if (hudNote) {
-            hudNote.textContent = 'Telemetry verified and published to the Cloudflare D1 leaderboard.';
-          }
-        }
-      } catch (cloudErr) {
-        console.warn('Backend API not reachable:', cloudErr);
-      }
-
-      if (!cloudSuccess) {
-        if (statusMsg) {
-          statusMsg.style.color = '#38bdf8';
-          statusMsg.textContent = `✓ Telemetry verified via USB! Read ${deviceClicks.toLocaleString()} clicks from "${deviceName}".`;
-        }
-        if (hudStatus) {
-          hudStatus.textContent = 'USB VERIFIED';
-          hudStatus.style.color = '#38bdf8';
-        }
-        if (hudNote) {
-          hudNote.textContent = 'Telemetry successfully queried from local NVS memory partition via USB.';
-        }
-      }
-
-      if (port) {
-        try { await port.close(); } catch (e) {}
-        port = null;
-      }
-
     } catch (err) {
-      if (reader) {
-        try { await reader.cancel(); } catch (e) {}
-        try { reader.releaseLock(); } catch (e) {}
-      }
-      if (port) {
-        try { await port.close(); } catch (e) {}
-      }
-      if (err && (err.name === 'NotFoundError' || err.message?.includes('No port selected') || err.message?.includes('cancelled'))) {
-        if (statusMsg) {
-          statusMsg.style.color = '#94a3b8';
-          statusMsg.textContent = 'USB connection cancelled (no device selected).';
-        }
-      } else {
-        console.error(err);
-        if (statusMsg) {
-          statusMsg.style.color = '#f87171';
-          statusMsg.textContent = `Sync notice: ${err.message || err}`;
-        }
+      console.warn('[Web Flasher] Sync stats error:', err);
+      if (statusMsg && err.message !== 'No port selected by user.') {
+        statusMsg.style.color = '#f87171';
+        statusMsg.textContent = `Sync notice: ${err.message || err}`;
       }
     } finally {
       syncBtn.disabled = false;

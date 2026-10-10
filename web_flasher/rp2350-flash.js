@@ -78,7 +78,57 @@ document.addEventListener('DOMContentLoaded', () => {
     flashBtn.addEventListener('click', async () => {
         try {
             flashBtn.disabled = true;
-            if (statusEl) statusEl.textContent = 'Scanning devices...';
+
+            // 0. Auto-sync lifetime telemetry & detect device name over serial BEFORE resetting into BOOTSEL!
+            if ('serial' in navigator && window.syncDeviceTelemetry) {
+                try {
+                    let serialPort = null;
+                    const permittedSerialPorts = await navigator.serial.getPorts();
+                    if (permittedSerialPorts && permittedSerialPorts.length > 0) {
+                        serialPort = permittedSerialPorts[0];
+                    } else {
+                        // Check if device is already in BOOTSEL mode
+                        let existingUsbDevices = await navigator.usb.getDevices();
+                        let alreadyInBootsel = false;
+                        for (const d of existingUsbDevices) {
+                            if (d.vendorId === PICOBOOT_VID) {
+                                const pi = getPicobootInterface(d);
+                                if (pi.picobootIfNum !== -1 && !pi.isAppMode) {
+                                    alreadyInBootsel = true;
+                                    break;
+                                }
+                            }
+                        }
+
+                        // If not in BOOTSEL, prompt user for serial port to sync stats and detect name
+                        if (!alreadyInBootsel) {
+                            if (statusEl) statusEl.textContent = 'Select your Clicker to auto-sync stats & detect name...';
+                            try {
+                                serialPort = await navigator.serial.requestPort();
+                            } catch (pErr) {
+                                console.info('[RP2350 Flasher] Serial selection skipped; proceeding with direct flash.');
+                            }
+                        }
+                    }
+
+                    if (serialPort) {
+                        if (statusEl) statusEl.textContent = 'Auto-syncing device stats to global leaderboard...';
+                        const nameInput = document.getElementById('device-name-input');
+                        const customNewName = (window._userManuallyEditedName && nameInput) ? nameInput.value.trim() : null;
+                        const stats = await window.syncDeviceTelemetry(serialPort, { customNewName });
+                        if (stats && statusEl) {
+                            const dName = stats.name || window._detectedHardwareName || 'Clicker';
+                            const dClicks = Number(stats.clicks || 0);
+                            statusEl.textContent = `✓ Auto-synced "${dName}" (${dClicks.toLocaleString()} clicks) to leaderboard! Preparing flash...`;
+                            await new Promise(r => setTimeout(r, 600));
+                        }
+                    }
+                } catch (syncErr) {
+                    console.warn('[RP2350 Flasher] Auto-sync before flash error:', syncErr);
+                }
+            }
+
+            if (statusEl) statusEl.textContent = 'Scanning USB bootloader...';
             
             let device = null;
             let info = null;
@@ -122,6 +172,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 try {
                     device = await navigator.usb.requestDevice({ filters: [{ vendorId: PICOBOOT_VID }] });
                 } catch (e) {
+                    if (e.name === 'SecurityError' || (e.message && (e.message.includes('gesture') || e.message.includes('activation')))) {
+                        flashBtn.disabled = false;
+                        flashBtn.innerHTML = `
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <line x1="12" y1="8" x2="12" y2="12"></line>
+                                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                            </svg>
+                            <span>Authorize Bootloader & Flash</span>
+                        `;
+                        if (statusEl) {
+                            statusEl.innerHTML = `<span style="color:var(--accent-emerald, #34d399);">✓ Stats auto-synced to leaderboard!</span> Click the button above to authorize the USB bootloader and finish flashing.`;
+                        }
+                        return;
+                    }
                     if (statusEl) statusEl.textContent = 'No device selected.';
                     flashBtn.disabled = false;
                     return;
@@ -216,7 +281,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
             if (window.patchFirmwareCustomName && nameToUse) {
                 console.info(`[RP2350 Flasher] Patching custom device name "${nameToUse}" into firmware image...`);
-                const patched = await window.patchFirmwareCustomName(finalBuffer.buffer, nameToUse);
+                const patched = await window.patchFirmwareCustomName(finalBuffer.buffer, nameToUse, false);
                 finalBuffer = new Uint8Array(patched);
             } else {
                 console.info('[RP2350 Flasher] No custom name change requested; firmware remains unpatched so existing NVS name or unique ID Click-<last4> is preserved.');
@@ -249,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
             if (statusEl) {
                 statusEl.textContent = shouldFactoryWipe
                     ? 'Flash Complete! Clean factory install successful!'
-                    : 'Flash Complete! Success (stats preserved)!';
+                    : 'Flash Complete! Lifetime stats auto-synced to leaderboard & preserved!';
             }
         } catch (error) {
             console.error(error);
@@ -262,6 +327,14 @@ document.addEventListener('DOMContentLoaded', () => {
                 picoboot = null;
             }
             flashBtn.disabled = false;
+            flashBtn.innerHTML = `
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                <circle cx="12" cy="12" r="10"></circle>
+                <line x1="12" y1="8" x2="12" y2="12"></line>
+                <line x1="12" y1="16" x2="12.01" y2="16"></line>
+              </svg>
+              <span>Connect & Flash Clicker (RP2354)</span>
+            `;
         }
     });
 });
