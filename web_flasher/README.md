@@ -59,7 +59,7 @@ Then open your browser and navigate to:
 > - ✅ Brave
 > - ✅ Opera
 > 
-> *(Safari and Firefox do not currently support Web Serial / WebUSB APIs).*
+> *(Safari and Firefox do not currently support Web Serial / WebUSB APIs).* 
 
 ---
 
