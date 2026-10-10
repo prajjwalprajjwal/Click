@@ -415,11 +415,18 @@ public:
 #endif
 
         powman_power_state sleepState = POWMAN_POWER_STATE_NONE;
+        
         powman_power_state wakeupState = powman_get_power_state();
         if (!powman_configure_wakeup_state(sleepState, wakeupState)) {
             powman_disable_all_wakeups();
             return -1;
         }
+
+        // Must clear boot registers so bootrom knows to boot normally from flash upon wake
+        powman_hw->boot[0] = 0;
+        powman_hw->boot[1] = 0;
+        powman_hw->boot[2] = 0;
+        powman_hw->boot[3] = 0;
 
         powman_hw->scratch[5] = PSTATE_WAKE_MARKER;
         powman_hw->scratch[6] = sleepState;
