@@ -25,8 +25,10 @@ private:
     // Sleep management
     SleepState sleepState = AWAKE;
     uint32_t lastActivityTime = 0;
-    uint32_t lightSleepTimeout = 20000;    // 20 seconds before light sleep
-    uint32_t deepSleepTimeout = 45000;     // 45 seconds before deep sleep
+    uint32_t firstWakeClickTime = 0;
+    uint8_t firstWakeClickButton = 0;      // 1 = MODE, 2 = ACTION
+    uint32_t lightSleepTimeout = 15000;    // 15 seconds before display off
+    uint32_t deepSleepTimeout = 30000;     // 30 seconds before deep sleep
     bool displayOn = true;
     bool isDimmed = false;
 
@@ -46,7 +48,7 @@ public:
     InputManager* getInputManager() { return &inputManager; }
     
     // Sleep/wake functions
-    bool recordActivity();
+    bool recordActivity(uint8_t button = 0);
     void enterLightSleep();
     void wakeFromLightSleep();
     void enterDeepSleep();

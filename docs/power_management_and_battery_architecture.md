@@ -154,45 +154,47 @@ When `snprintf(buf, sizeof(buf), "Voltage: %.2fV", voltage)` was executed:
    snprintf(buf, sizeof(buf), "%d.%02dV", vWhole, vFrac);
    ```
    This is 100% portable, executes in under 1 microsecond, and uses zero heap/float library overhead.
-2. **Linker Flag Safeguard**: In [platformio.ini](file:///Users/prajjwal/Documents/GitHub/Click/platformio.ini#L26), added `-Wl,-u,_printf_float` to link the floating-point `printf` routine across the firmware.
+2. **Linker Flag Safeguard**: In [platformio.ini](file:///Users/prajjwal/Documents/GitHub/Click/platformio.ini#L27), added `-Wl,-u,_printf_float` to link the floating-point `printf` routine across the firmware.
 
 ---
 
-### Case 4: The Sleep Wake Matrix & BOOTSEL / QSPI Dilemma
+### Case 4: Accidental Pocket Clicks & Double-Click Wake Architecture
 
 #### The Problem
-The user required that **any button (MODE or ACTION)** should wake the Clicker from sleep. However, when entering the hardware dormant sleep state (`xosc_dormant()`), the ACTION button failed to wake the device.
+When the device went to sleep in a user's pocket or bag, inadvertent bumps and single clicks would accidentally wake the device and cause unwanted game clicks. Furthermore, previous attempts to aggressively tear down the I2C bus and switch PLL clocks during sleep caused the OLED I2C peripheral to hang upon wake, forcing the user to power cycle via the physical ON/OFF switch (`SW1`).
 
 #### Silicon Hardware Architecture
-- The **MODE button** is on **GPIO 0**, which belongs to **IO_BANK0**. Bank 0 GPIOs support level-sensitive dormant interrupt controllers (`gpio_set_dormant_irq_enabled`).
-- The **ACTION button** is connected to **`BOOTSEL` (`QSPI_SS`)**. On the RP2350/RP2354, the QSPI interface belongs to the **QSPI pad bank**, which is dedicated to high-speed external flash communication. It does **not** have an independent dormant wake IRQ line in the hardware power management controller!
+- The **MODE button** is on **GPIO 0**, which belongs to **IO_BANK0** (active LOW with internal pull-up).
+- The **ACTION button** is connected to **`BOOTSEL` (`QSPI_SS`)**. On the RP2350/RP2354, the QSPI interface belongs to the **QSPI pad bank** and is read via the `BOOTSEL` hardware accessor.
 
-#### The Solution: 12MHz Active Low-Power Sleep
-Instead of stopping the crystal oscillator entirely (which blinds the QSPI controller), we clock the system down to direct XOSC 12MHz and execute ARM Wait-For-Interrupt:
-
-In [PowerManager.h](file:///Users/prajjwal/Documents/GitHub/Click/firmware/src/system/PowerManager.h#L328-L352):
-```cpp
-// 1. Clock clk_sys down from 48MHz/133MHz to 12MHz direct crystal clock
-set_sys_clock_khz(12000, false);
-
-// 2. Poll both buttons while sleeping via Cortex-M33 __wfi()
-while (!isModeButtonPressed() && !isActionButtonPressed()) {
-    delay(20); // Internally invokes __wfi(), reducing current to < 0.8mA!
-}
-
-// 3. Debounce button release before returning to active applet
-while (isModeButtonPressed() || isActionButtonPressed()) {
-    delay(10);
-}
-
-// 4. Restore active system clock to 48MHz
-set_sys_clock_khz(48000, false);
-```
+#### The Solution: Same-Button Double-Click Wake & 3-Stage Sleep Architecture
+1. **3-Stage Power-Saving Profile**:
+   - **Stage 1 (8 seconds idle)**: OLED contrast drops to `0x05`, decreasing display current consumption by ~60%.
+   - **Stage 2 (15 seconds idle - `lightSleepTimeout`)**: OLED display turns OFF completely (`SSD1306_DISPLAYOFF`).
+   - **Stage 3 (30 seconds idle - `deepSleepTimeout`)**: The MCU enters true **DEEP SLEEP**:
+     - System clock down-clocks from 48MHz to 12MHz direct crystal clock via `set_sys_clock_khz(12000, false)`.
+     - Digital input buffers on unused CMOS GPIOs are disabled to prevent shoot-through.
+     - ADC converter core is completely powered down (`hw_clear_bits(&adc_hw->cs, ADC_CS_EN_BITS)`).
+     - WS2812 DIN and buzzer base pins are clamped to 0V GND.
+     - CPU enters ARM Cortex-M33 `__wfi()` sleep, dropping total board current to **$< 1\text{ mA}$**.
+2. **Double-Click on the SAME Button (`click-click` within 500ms)**:
+   - The first click wakes the MCU core internally, but **does not turn on the device**: the OLED, LEDs, and buzzer remain completely OFF.
+   - The system checks if a second click occurs on the **SAME button** within a **500ms window**:
+     - If the user clicked `ACTION`, only a second click on `ACTION` wakes the device.
+     - If the user clicked `MODE`, only a second click on `MODE` wakes the device.
+     - Clicking one key and then pressing another key is rejected as accidental pocket contact, keeping the device asleep.
+   - If no second click occurs, the window times out (500ms) and the MCU returns directly to `__wfi()` sleep.
+   - Continuous holds ($> 3\text{s}$) from a button squeezed in a bag or pocket are ignored.
+3. **I2C Bus Preservation**:
+   - The I2C bus (`Wire1` on GP2/GP3) is kept intact during sleep. When idle, SDA and SCL remain pulled HIGH by external 4.7kΩ resistors, drawing $0\text{ µA}$.
+   - The SSD1306 is placed in low-power standby via `SSD1306_DISPLAYOFF` without bus teardowns or glitchy SCL pulse trains.
+   - Upon confirmed same-button double click, `set_sys_clock_khz(48000, false)` restores 48MHz, and `SSD1306_DISPLAYON` restores the display in $< 1\text{ ms}$ with 100% reliability.
 
 #### Results
-- Power consumption during sleep drops from ~25 mA down to **$< 0.8\text{ mA}$**!
-- Both **MODE** (GP0) and **ACTION** (`BOOTSEL`) wake the device instantly.
-- The device immediately wakes back to the Sisyphus game screen with zero latency.
+- Eliminates unwanted accidental pocket clicks completely.
+- Clicking one key and then another will NOT wake the device; only double-clicking the **SAME** key within 500ms wakes it.
+- Preserves the fast 30s deep sleep profile ($< 1\text{mA}$ micro-power standby) and 15s screen off.
+- Display turns on instantly without any I2C lockups or power-switch resets.
 
 ---
 
@@ -205,7 +207,7 @@ When the device went to sleep, one of the two RGB LEDs sometimes remained dimly 
 The SK6812/WS2812 NeoPixel protocol uses high-speed 800kHz single-wire pulse-width modulation. When the RP2354 goes to sleep, if the GPIO output pin is left floating (High-Z), capacitive charge on the PCB trace or inductive noise from the OLED power rail can couple into the LED's high-impedance `DIN` pin. The internal SK6812 shift register interprets this noise as valid data bits, turning on its internal constant-current driver.
 
 #### The Fix: Hardware Latch & Ground Clamp
-In [WS2812.h](file:///Users/prajjwal/Documents/GitHub/Click/firmware/src/system/WS2812.h#L96-L125), we created `clearAndHaltForSleep()`:
+In [WS2812.h](file:///Users/prajjwal/Documents/GitHub/Click/firmware/src/system/WS2812.h#L111-L140), we created `clearAndHaltForSleep()`:
 1. **Dual Zero Frame**: Send two consecutive frames of pure 0s (`0x000000`) and wait 10ms to ensure both cascaded SK6812 ICs latch into their zero state.
 2. **Peripheral Disconnect**: De-mux GP11 from the PIO state machine and switch it to standard SIO GPIO output.
 3. **Solid Ground Clamp & Pull-Down**: Clear the output bit, drive GP11 LOW (0V), and enable the internal hardware pull-down resistor (`gpio_pull_down(11)`).

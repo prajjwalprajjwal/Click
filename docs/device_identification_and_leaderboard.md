@@ -6,51 +6,64 @@ This document describes how Clicker devices are uniquely identified via immutabl
 
 ## 1. Hardware Unique Identifiers
 
-### A. ESP32 Factory eFuse MAC & Custom Name (`firmware/src/system/device_info.hpp`)
-Each ESP32 unit derives an immutable 48-bit hardware identifier burned into eFuse silicon at the factory, paired with an NVS-backed customizable owner name:
+### A. Active Production Silicon: RP2354A Unique Board ID (`firmware/src/system/device_info.hpp`)
+On the **Click 4 (Raspberry Pi RP2354A)** platform, hardware identity is derived from the on-chip OTP / Flash silicon factory unique ID via the Raspberry Pi Pico C SDK:
+
+```cpp
+#include <pico/unique_id.h>
+
+pico_unique_board_id_t id;
+pico_get_unique_board_id(&id);
+// Formats 8 raw bytes into a permanent 16-character hex string (e.g. "E6614104033C71BF")
+```
+
+The unified `DeviceInfo::getID()` implementation handles both architectures transparently:
 
 ```cpp
 #pragma once
 #include <Arduino.h>
+#include <Preferences.h>
+#if defined(ESP32)
 #include <esp_system.h>
+#elif defined(ARDUINO_ARCH_RP2040)
+#include <pico/unique_id.h>
+#endif
 
 class DeviceInfo {
 public:
     static String getID() {
+#if defined(ESP32)
         uint64_t chipid = ESP.getEfuseMac();
         char idStr[13];
         snprintf(idStr, sizeof(idStr), "%04X%08X", 
                  (uint16_t)(chipid >> 32), 
                  (uint32_t)chipid);
-        return String(idStr); // Returns a clean 12-char hex ID like "3C71BF89A1B2"
+        return String(idStr); // Clean 12-char hex ID like "3C71BF89A1B2"
+#elif defined(ARDUINO_ARCH_RP2040)
+        pico_unique_board_id_t id;
+        pico_get_unique_board_id(&id);
+        char idStr[17];
+        snprintf(idStr, sizeof(idStr), "%02X%02X%02X%02X%02X%02X%02X%02X",
+                 id.id[0], id.id[1], id.id[2], id.id[3],
+                 id.id[4], id.id[5], id.id[6], id.id[7]);
+        return String(idStr); // Clean 16-char hex ID like "E6614104033C71BF"
+#else
+        return String("CLICKER000000");
+#endif
     }
 
-    static String getFormattedMac() {
-        uint64_t chipid = ESP.getEfuseMac();
-        uint8_t* mac = (uint8_t*)&chipid;
-        char macStr[18];
-        snprintf(macStr, sizeof(macStr), "%02X:%02X:%02X:%02X:%02X:%02X",
-                 mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-        return String(macStr); // e.g. "3C:71:BF:89:A1:B2"
-    }
-
-    // Dynamic Bootscreen Name Personalization
-    static String getCustomName();
-    static bool setCustomName(const String& name);
-    static bool hasCustomName();
+    static const char* getCustomName();
+    static void setCustomName(const char* newName);
 };
 ```
 
-### B. Next-Gen RP2354A Silicon ID (Click 4 Revision)
-On the Raspberry Pi RP2354A platform, hardware identity is derived from the on-chip OTP memory / 64-bit Unique Board ID:
+### B. Legacy Prototype Silicon: ESP32 Factory eFuse MAC
+On the legacy **Click 1 Prototype (ESP32-WROOM-32E)** platform, the identifier is read from factory eFuse silicon via `ESP.getEfuseMac()`, returning a 12-character hexadecimal string (e.g. `3C71BF89A1B2`).
 
-```c
-#include "pico/unique_id.h"
-
-pico_unique_board_id_t id;
-pico_get_unique_board_id(&id);
-// Generates a permanent 16-character hex string unique to the silicon die
-```
+### C. Persistent Custom Name Personalization
+Owners can assign a custom handle that displays on the physical OLED boot splash screen:
+1. **Binary Signature Matching**: Firmware binaries can embed a magic rodata signature (`__CLICK_NAME__:<name>:__END_NAME___`), allowing the Web Flasher to personalize pre-compiled binaries before flashing.
+2. **NVS Storage Fallback**: The name can also be written to persistent non-volatile storage (`clicker_cfg` namespace, key `custom_name`). Defaults to `"CLICKER"` if unset.
 
 ---
 
@@ -60,24 +73,20 @@ pico_get_unique_board_id(&id);
 sequenceDiagram
     participant User
     participant WebFlasher as flashclick.uprajjwal.com.np
-    participant Device as Clicker Device
+    participant Device as Clicker Device (RP2354 / ESP32)
     participant Cloud as Cloudflare Worker + D1
 
     User->>WebFlasher: Connect via WebSerial (115200 baud)
-    WebFlasher->>Device: GET_ID
-    Device-->>WebFlasher: ID:3C71BF89A1B2
-    WebFlasher->>Device: GET_NAME
-    Device-->>WebFlasher: NAME:Prajjwal's Click
-    WebFlasher->>Device: GET_STATS
-    Device-->>WebFlasher: CLICKS:35200,FLAPPY:42,JUST_TEN:10.004
+    WebFlasher->>Device: \r\nGET_STATS\r\n
+    Note over Device: Flushes active session to NVS
+    Device-->>WebFlasher: {"event":"stats","name":"Prajjwal's Click","chip_id":"E6614104033C71BF","clicks":35200,"flappy":42,"just_ten":10.004,"uptime_hrs":12}
 
-    opt User Updates Name
-        User->>WebFlasher: Enter "Master Clicker"
-        WebFlasher->>Device: SET_NAME:Master Clicker
-        Device-->>WebFlasher: OK:NAME_SET (Saved to NVS)
+    opt Restore or Update Clicks
+        WebFlasher->>Device: SET_CLICKS 35200
+        Device-->>WebFlasher: {"event":"clicks_updated","clicks":35200}
     end
 
-    WebFlasher->>Cloud: POST /api/sync { chip_id, name, clicks, flappy, just_ten }
+    WebFlasher->>Cloud: POST /api/sync { chip_id, name, clicks, flappy, just_ten, uptime_hrs }
     Cloud-->>WebFlasher: { success: true, credited_delta: 350, total_boulder_clicks: 1420580 }
     WebFlasher->>User: Display live ranking & Community Boulder contribution!
 ```
@@ -124,4 +133,3 @@ CREATE TABLE IF NOT EXISTS sync_log (
 CREATE INDEX IF NOT EXISTS idx_devices_clicks ON devices(total_clicks DESC);
 CREATE INDEX IF NOT EXISTS idx_devices_flappy ON devices(flappy_high_score DESC);
 ```
-

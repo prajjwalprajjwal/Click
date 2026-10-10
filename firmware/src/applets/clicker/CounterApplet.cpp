@@ -297,6 +297,7 @@ void CounterApplet::init() {
   lastClickTime = millis();
   frameDirty = true;
   lastFrameTime = millis();
+  lastDisplayTime = 0;
 
 #if CLICKER_DEBUG
   Serial.println("[SISYPHUS] Debug enabled. Commands: info | sim <count>");

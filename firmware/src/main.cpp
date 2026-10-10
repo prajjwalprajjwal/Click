@@ -32,7 +32,7 @@ SettingsApplet settingsApplet;
 FlappyBirdApplet flappyBirdApplet;
 
 void onModeButtonClick() {
-    if (osManager.recordActivity()) {
+    if (osManager.recordActivity(1)) {
         return; // Screen was asleep/off; first click wakes the screen silently
     }
     // Requirement 2: Do NOT beep just before Sisyphus game!
@@ -53,7 +53,7 @@ void onModeButtonClick() {
 }
 
 void onModeButtonHold() {
-    if (osManager.recordActivity()) {
+    if (osManager.recordActivity(1)) {
         return;
     }
     Applet* applet = osManager.getCurrentApplet();
@@ -69,7 +69,7 @@ void onModeButtonHold() {
 }
 
 void onActionButtonClick() {
-    if (osManager.recordActivity()) {
+    if (osManager.recordActivity(2)) {
         return; // Screen was off; wake display
     }
     Applet* applet = osManager.getCurrentApplet();
@@ -83,7 +83,7 @@ void onActionButtonClick() {
 }
 
 void onActionButtonHold() {
-    if (osManager.recordActivity()) {
+    if (osManager.recordActivity(2)) {
         return;
     }
     Applet* applet = osManager.getCurrentApplet();
@@ -97,7 +97,7 @@ void onActionButtonHold() {
 }
 
 void onBothButtonsHeld() {
-    if (osManager.recordActivity()) {
+    if (osManager.recordActivity(0)) {
         return;
     }
     Applet* applet = osManager.getCurrentApplet();

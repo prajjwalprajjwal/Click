@@ -35,13 +35,23 @@
 
 ### [v1.0.4] - 2026-10-05
 
-#### Added & Improved
+- **Same-Button Double-Click Wake Protection**:
+  - Implemented accidental mistake click filter requiring two clicks on the **SAME key** (MODE-MODE or ACTION-ACTION within 500ms) to wake.
+  - The first click wakes the MCU core internally, keeping the SSD1306 OLED, WS2812 RGB LEDs, and buzzer completely OFF.
+  - Clicking one key and then pressing another key is rejected as accidental pocket contact, keeping the device asleep.
+  - If no second click occurs on the same key within 500ms, the MCU remains asleep and returns to `__wfi()`. Continuous holds (> 3s) are safely rejected.
+- **Fast 3-Stage Power Profile & Deep Sleep (< 1mA Standby)**:
+  - Preserved the full 3-stage battery lifecycle optimized for fast wake: 8s idle contrast dimming (0x05), 15s display off (`lightSleepTimeout`), and 30s true deep sleep (`deepSleepTimeout`).
+  - In deep sleep, MCU down-clocks to 12MHz direct crystal clock via `set_sys_clock_khz(12000, false)`, ADC is shut down, floating CMOS GPIO buffers disabled, and LEDs/buzzer clamped to 0V ground.
+- **I2C Bus Preservation Across Sleep & Wake**:
+  - Eliminated I2C peripheral teardown glitches that previously hung the SSD1306 controller and required physical ON/OFF switch (`SW1`) toggling.
+  - `Wire1` remains intact during sleep with lines pulled HIGH (0µA idle), allowing instant, rock-solid wake in $< 1\text{ ms}$.
 - **Raspberry Pi RP2354A Production Support (`env:rp2354`)**:
   - Full hardware and firmware integration for the Click 4 PCBA running dual Cortex-M33 at 48MHz with 4MB embedded QSPI Flash.
   - Native USB 2.0 Full Speed support for WebSerial communications and `picotool` flashing.
 - **Micro-Power Sleep Mode (< 0.8mA Standby)**:
-  - Implemented 12MHz crystal down-clocking with ARM Cortex-M33 `__wfi()` sleep loop in `PowerManager.h`.
-  - **Universal Button Wakeup**: Configured sleep polling so **either button** (`MODE` on GP0 or `ACTION` on `BOOTSEL`/`QSPI_SS`) immediately wakes the device from sleep with zero latency.
+  - Implemented low-power ARM Cortex-M33 `__wfi()` sleep loop in `PowerManager.h`.
+  - **Universal Button Wakeup**: Either button (`MODE` on GP0 or `ACTION` on `BOOTSEL`/`QSPI_SS`) participates in the double-click wake sequence.
   - Returns directly to Sisyphus on wake.
 - **Hardware Charging Sense Fix (`STAT` on GP1)**:
   - Replaced faulty `usb_hw->sie_status` software detection (which is overridden to 1 permanently by the TinyUSB driver in silicon) with true hardware ETA6003 `STAT` pin sensing on GP1 with 10kΩ pullup `R9`. Unplugging USB cable is detected instantly.
@@ -123,14 +133,14 @@
   - **9-Cycle SCL Bus Recovery**: Sends 9 clock pulses on SCL upon wake to unstick any hung I2C slave devices before calling `Wire.begin()`.
 - **Hardware Documentation & PCB Archival**:
   - **Active Prototype Board (Click 1)**: Added KiCad schematic and PCB layout files to `hardware/PCB/Click1/`. Documents the manually assembled ESP32-WROOM-32E prototype that actively executes all current embedded firmware in `firmware/`.
-  - **Next-Generation Production Board (Click 4 - JLCPCB V0.0.1)**: Added complete turnkey PCBA design files to `hardware/PCB/Click4/` (schematic, PCB layout, and 3D STEP models) prepared for the JLCPCB V0.0.1 manufacturing run.
-  - Microcontroller: RP2354A (QFN-56 package, 30 GPIOs: GP0-GP29)
-  - Display I2C: SDA = GP20, SCL = GP21
-  - User Inputs: MODE = GP14, ACTION = GP32 (or assigned GP)
-  - Power & Battery: STAT = GP3 (or assigned GP), BAT_ADC = GP29 (ADC3)
-  - Audio & LEDs: Buzzer = GP27, APA102 Data = GP11, APA102 Clock = GP12
-  - Voltage Regulator: AP2112K-3.3 with EN tied to physical slide switch
-  - *Note*: Firmware adaptations for the RP2354A will be developed once the manufactured boards arrive from JLCPCB.
+  - **Production Board (Click 4 - JLCPCB PCBA)**: Added complete turnkey PCBA design files to `hardware/PCB/Click4/` (schematic, PCB layout, and 3D STEP models).
+  - Microcontroller: RP2354A (QFN-56 package, 30 GPIOs: GP0-GP29, 512KB SRAM, 4MB Flash)
+  - *Finalized Production Routing (Implemented in v1.0.4 & `PinConfig.h`)*:
+    - Display & RTC I2C: SDA = GP2, SCL = GP3 (`Wire1` at 400kHz)
+    - User Inputs: MODE = GP0, ACTION = BOOTSEL / QSPI_SS
+    - Power & Battery: STAT = GP1 (Active LOW, ETA6003), BAT_ADC = GP29 (ADC3)
+    - Audio & LEDs: Buzzer = GP27 (NPN BJT), 2× WS2812/SK6812 DIN = GP11
+    - Voltage Regulator: AP2112K-3.3 with EN tied to physical slide switch SW1
 
 #### Fixed & Optimized
 - **Display Stabilization**: Added 500ms delay in `setup()` to allow SSD1306 power-on reset (POR) capacitors to stabilize before issuing initialization commands.

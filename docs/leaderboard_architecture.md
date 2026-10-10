@@ -9,7 +9,7 @@ This document specifies the end-to-end integration architecture connecting the h
 ```mermaid
 flowchart LR
     subgraph Client["Player Hardware"]
-        DEV["Clicker Device\n(ESP32 / Click 4)"]
+        DEV["Clicker Device\n(RP2354A / ESP32)"]
     end
 
     subgraph Flashing["WebSerial Interface"]
@@ -25,7 +25,7 @@ flowchart LR
         SITE["Community Leaderboard\n(click.uprajjwal.com.np)"]
     end
 
-    DEV <-->|"WebSerial (115200 Baud)\nGET_ID, GET_STATS, SET_NAME"| WF
+    DEV <-->|"WebSerial (115200 Baud)\nGET_STATS, SET_CLICKS"| WF
     WF -->|"POST /api/sync\n(Delta submission & anti-cheat)"| API
     API <-->|"ACID SQLite Transactions"| DB
     SITE <-->|"GET /api/leaderboard\n(Edge cached)"| API
@@ -35,21 +35,28 @@ flowchart LR
 
 ## 2. Device Identity & Personalization Protocol
 
-1. **Hardware Identity Interrogation**:
+1. **Hardware Identity & Telemetry Interrogation**:
    - The user connects the Clicker via USB to `flashclick.uprajjwal.com.np` and clicks "Connect Device".
-   - The browser opens a WebSerial port at 115200 baud and issues `GET_ID`.
-   - The device firmware responds with `ID:<12-hex-chip-id>` (derived from factory eFuse MAC, e.g. `3C71BF89A1B2`).
+   - The browser opens a WebSerial port at 115200 baud and issues `\r\nGET_STATS\r\n`.
+   - The firmware immediately flushes any active session clicks to persistent NVS storage, reads unique hardware identity (RP2354A 16-hex Unique Board ID or ESP32 12-hex eFuse MAC), queries all applets, and returns structured JSON:
+     ```json
+     {"event":"stats","name":"Prajjwal's Click","chip_id":"E6614104033C71BF","clicks":35200,"flappy":42,"just_ten":10.004,"uptime_hrs":12}
+     ```
 2. **Personalization & Bootscreen Customization**:
-   - Browser sends `GET_NAME` to retrieve the current owner name.
-   - The player enters or changes their nickname (e.g. `"Prajjwal's Click"`).
-   - Browser issues `SET_NAME:<name>`.
-   - Firmware saves the string to the NVS partition (`device` namespace, key `name`).
-   - On every boot or reset, the SSD1306 OLED boot screen renders this custom name.
-3. **Stat Query & Sync**:
-   - Browser issues `GET_STATS`.
-   - Firmware queries active applets and returns:
-     `CLICKS:25400,FLAPPY:42,JUST_TEN:10.012`
-   - Browser sends `POST /api/sync` to the Cloudflare Worker.
+   - The owner name can be embedded into the firmware image via binary magic rodata signatures (`__CLICK_NAME__:<name>:__END_NAME___`) during web flashing, or stored in NVS under `clicker_cfg`.
+   - On every boot or reset, the SSD1306 OLED boot screen dynamically renders this custom handle.
+3. **Delta Submission & Global Boulder Sync**:
+   - The browser parses the JSON telemetry and issues a `POST /api/sync` payload to the Cloudflare Worker edge API:
+     ```json
+     {
+       "chip_id": "E6614104033C71BF",
+       "name": "Prajjwal's Click",
+       "clicks": 35200,
+       "flappy": 42,
+       "just_ten": 10.004,
+       "uptime_hrs": 12
+     }
+     ```
 
 ---
 

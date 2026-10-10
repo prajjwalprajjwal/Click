@@ -52,7 +52,7 @@ Milestones are automatically registered in `firmware/src/screens/generated/regis
 |:---|:---|:---|:---|
 | `FlappyBirdApplet_char.png` (10×8) | Flappy Bird player sprite | `generated_assets/FlappyBirdApplet_char.h` | `flappybirdapplet_char_bmp` |
 
-> Note: Sisyphus boulder and walking/pushing sprite sheets are maintained directly in `firmware/src/clicker/SisyphusSprites.h` for sub-pixel animation performance.
+> Note: Sisyphus boulder and walking/pushing sprite sheets are maintained directly in `firmware/src/applets/clicker/SisyphusSprites.h` for sub-pixel animation performance.
 
 ---
 

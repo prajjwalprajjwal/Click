@@ -301,15 +301,21 @@ void HardwareDiagnostics::printSystemInfo() {
     Serial.printf(" -> MAC Style ID:  %s\n", mac.c_str());
     Serial.printf(" -> Custom Name:   %s\n", customName);
     Serial.printf(" -> CPU Clock:     %lu MHz\n", F_CPU / 1000000UL);
-    Serial.printf(" -> SRAM Total:    512 KB\n");
-    Serial.printf(" -> Free Heap:     %u bytes\n", rp2040.getFreeHeap());
+#if defined(ESP32)
+    uint32_t freeHeap = ESP.getFreeHeap();
+#elif defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
+    uint32_t freeHeap = rp2040.getFreeHeap();
+#else
+    uint32_t freeHeap = 0;
+#endif
+    Serial.printf(" -> Free Heap:     %u bytes\n", freeHeap);
     Serial.printf(" -> Pinout:        ACTION=QSPI_SS, MODE=GP0, SDA=GP2, SCL=GP3\n");
     Serial.printf("                   BUZZER=GP27, WS2812=GP11, BAT_ADC=GP29, RTC=PCF8563\n");
 
     drawOledHeader("SYSTEM INFO");
     display.printf("MCU: RP2354A 150MHz\n");
     display.printf("ID:  %s\n", chipId.substring(0, 12).c_str());
-    display.printf("Heap: %u B\n", rp2040.getFreeHeap());
+    display.printf("Heap: %u B\n", freeHeap);
     display.printf("Name: %s\n", customName);
     display.display();
 }
@@ -433,10 +439,13 @@ void HardwareDiagnostics::run() {
     // Give user 1 second to connect terminal, while keeping initialization responsive
     delay(1000);
 
-    // Initialize I2C on GP2 (SDA) and GP3 (SCL)
+#if defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
     CLICK_I2C.setSDA(OLED_SDA_PIN);
     CLICK_I2C.setSCL(OLED_SCL_PIN);
     CLICK_I2C.begin();
+#else
+    CLICK_I2C.begin(OLED_SDA_PIN, OLED_SCL_PIN);
+#endif
     CLICK_I2C.setClock(400000);
 
     display.begin(SSD1306_SWITCHCAPVCC, 0x3C);

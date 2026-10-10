@@ -87,7 +87,7 @@ Detailed technical schematics and electrical specifications can be found in [`do
 - **User Inputs**: MODE = GP0 (Active LOW), ACTION = `BOOTSEL` / `QSPI_SS` (Active LOW)
 - **Power & Battery**: STAT = GP1 (Active LOW charging from ETA6003 with 10k pullup), BAT_ADC = GP29 (ADC3 via 100k/100k divider)
 - **Audio & Visual**: Buzzer = GP27 (via NPN BJT), RGB LEDs = GP11 (2× SK6812 DIN via PIO)
-- **Power Management**: 12MHz direct XOSC sleep with ARM `__wfi()` ($< 0.8\text{ mA}$), woken by **any button**
+- **Power Management**: Same-Button Double-Click Wake protection (double-clicking the same key within 500ms), 3-stage sleep profile (8s dim, 15s display off, 30s deep sleep at 12MHz down-clocking $< 1\text{ mA}$), I2C bus preservation (0µA idle)
 
 ### Legacy Prototype Specs (Click 1: ESP32-WROOM-32E)
 - **Microcontroller**: ESP32-WROOM-32E (Xtensa Dual-Core 240MHz, 4MB Flash)
@@ -132,13 +132,13 @@ The firmware features an event-driven `OSManager` hosting four built-in applets 
 
 | Action | Control | Description |
 |:---|:---|:---|
-| **Cycle Applets** | `MODE` Button (Short Press) | Switch between **Clicker**, **Just Ten**, and **Flappy Bird**. |
-| **Settings Menu** | `MODE` Button (Hold > 1s) | Toggle the **SYSTEM** status and telemetry screen. |
-| **Toggle System Info** | `ACTION` Button (in Settings) | Toggle between Battery Telemetry and System Info pages. |
-| **Primary Game Action** | `ACTION` Button (Short Press) | Push boulder / Jump bird / Start & Stop 10s timer. |
-| **Reset Game Score** | `ACTION` Button (Hold > 3s) | Reset the score/counter of the currently active applet. |
-| **Wake from Sleep** | **Either Button** (`MODE` or `ACTION`) | Instantly wakes the device from low-power sleep back to Sisyphus. |
-| **Factory Master Reset** | **Both Buttons Held** (> 4s) | Erase all NVS partitions, resetting lifetime clicks and milestones. |
+| **Cycle Applets** | `MODE` Button (Short Press) | Switch between **Clicker**, **Just Ten**, and **Flappy Bird** (click chime plays except before Sisyphus). |
+| **Settings Menu** | `MODE` Button (Hold > 1s) | Toggle between the currently active applet and the **SYSTEM** settings screen. |
+| **Toggle System Info** | `ACTION` Button (in Settings) | Toggle between Battery Telemetry (Page 0) and System Info (Page 1) screens. |
+| **Primary Game Action** | `ACTION` Button (Short Press) | Push boulder in Sisyphus / Flap wings in Flappy Bird / Start & Stop in Just Ten. |
+| **Wake from Sleep** | **Same-Button Double-Click** (two clicks on the same key within 500ms) | Wakes the device from low-power sleep back to the Sisyphus game (filters accidental single clicks & cross-key bumps). |
+| **Factory Master Reset** | **Both Buttons Held** (> 4s) | Trigger master reset / clear NVS partitions and milestone progress. |
+
 
 ---
 
@@ -171,7 +171,7 @@ The system firmware (`firmware/src/system/`) provides an isolated runtime enviro
    osManager.registerApplet(&snakeApplet);
    ```
 
-All input debouncing, display clocking (400kHz Fast I2C), light sleep (20s), deep sleep (45s), and RTC wakeups continue working automatically in the background.
+All input debouncing, display clocking (400kHz Fast I2C), light sleep (15s), deep sleep (30s), and button wakeups continue working automatically in the background.
 
 ---
 
@@ -193,15 +193,21 @@ All input debouncing, display clocking (400kHz Fast I2C), light sleep (20s), dee
   ```
 
 ### 3. Building via PlatformIO
-The project uses PlatformIO with an automated asset compilation hook.
+The project uses PlatformIO with an automated asset compilation hook:
 ```bash
-# Compile firmware (automatically triggers pre-build asset conversion)
+# Compile firmware for Click 4 (Raspberry Pi RP2354A - Default target)
+pio run -e rp2354
+
+# Compile with interactive Hardware Diagnostics Suite enabled
+pio run -e rp2354-debug
+
+# Compile for legacy prototype (ESP32-WROOM-32E)
 pio run -e esp32doit-devkit-v1
 
 # Upload directly over USB serial
 pio run --target upload
 
-# Open serial monitor
+# Open serial monitor (115200 baud)
 pio device monitor -b 115200
 ```
 
@@ -251,18 +257,22 @@ flowchart LR
   * Every sync transaction is immutably audited in the `sync_log` table with delta claims and hash signatures.
 
 ### 3. Device Personalization & Custom Bootscreen ✨
-* Clickers are uniquely identified by their factory eFuse MAC address (e.g. `3C71BF89A1B2`).
-* Through the Web Flasher interface, players can set a custom owner name (e.g. `"Prajjwal's Click"`).
-* This name is transmitted via WebSerial (`SET_NAME:<name>`) and saved directly into the device's persistent NVS storage (`device` namespace).
-* Upon reboot, the physical SSD1306 OLED screen proudly renders the personalized owner name on the boot splash screen.
+* Clickers are uniquely identified by their hardware silicon signature:
+  * **Raspberry Pi RP2354A**: Permanent 16-character hex Unique Board ID queried via `pico_get_unique_board_id()` (e.g. `E6614104033C71BF`).
+  * **ESP32-WROOM-32E**: Factory 12-character hex eFuse MAC address via `ESP.getEfuseMac()` (e.g. `3C71BF89A1B2`).
+* Through the Web Flasher interface, players can set or personalize their custom owner name (e.g. `"Prajjwal's Click"`).
+* Custom names can be baked into binary firmware via magic rodata signatures (`CLICK_NAME_MAGIC_PREFIX`) or saved persistently to NVS storage (`clicker_cfg` namespace).
+* Upon boot, the physical SSD1306 OLED screen proudly renders the personalized owner name on the boot splash screen.
 
-### 4. Interactive WebSerial Command Protocol 🔌
-The firmware exposes a lightweight ASCII command parser on UART0 (115200 baud) for browser-based management:
-* `GET_ID` &rarr; Returns `ID:<12-hex-chip-id>`
-* `GET_NAME` &rarr; Returns `NAME:<owner_name>`
-* `SET_NAME:<name>` &rarr; Writes name to NVS and returns `OK:NAME_SET`
-* `GET_STATS` &rarr; Returns structured game metrics: `CLICKS:<n>,FLAPPY:<n>,JUST_TEN:<n>`
-* `RESET_STATS` &rarr; Resets active applet statistics
+### 4. Interactive Serial Telemetry Protocol 🔌
+The firmware exposes a high-speed telemetry interface over USB CDC serial (115200 baud) for browser-based synchronization:
+* `GET_STATS` / `STATS` &rarr; Flushes active clicks to storage and returns structured JSON telemetry:
+  `{"event":"stats","name":"CLICKER","chip_id":"...","clicks":35200,"flappy":42,"just_ten":10.004,"uptime_hrs":12}`
+* `SET_CLICKS <val>` &rarr; Sets lifetime click count and returns:
+  `{"event":"clicks_updated","clicks":<val>}`
+* `SET_STATS CLICKS=<n> FLAPPY=<n> JUST_TEN=<f>` &rarr; Restores all mini-game scores and returns:
+  `{"event":"stats_restored","clicks":<n>,"flappy":<n>,"just_ten":<f>}`
+* `PING` &rarr; Returns heartbeat response: `{"event":"pong"}`
 
 ### 5. Live Links & Deployment
 * **Live Community Leaderboard**: [click.uprajjwal.com.np](https://click.uprajjwal.com.np)

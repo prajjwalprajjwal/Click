@@ -11,16 +11,16 @@ Browser firmware installer for the open-source Clicker device ecosystem. ESP32 u
    - **Clean Install (Erase)**: Enabled via `"new_install_prompt_erase": true` in `manifest.json`. Users can choose to execute a full factory wipe when restoring unbootable units or transferring ownership.
 2. **Device Personalization (Custom Bootscreen)**:
    - Connects to the Clicker device over WebSerial (115200 baud).
-   - Reads the factory eFuse MAC identifier and prompts the user for a custom owner name (e.g. `"Prajjwal's Click"`).
-   - Sends `SET_NAME:<name>` over serial to update the device NVS instantly—the name displays proudly on the physical OLED bootscreen upon boot!
+   - Reads the unique silicon identifier (RP2354A 16-hex Unique Board ID or ESP32 12-hex eFuse MAC) and prompts the user for a custom owner name (e.g. `"Prajjwal's Click"`).
+   - Personalizes the binary or updates device storage—the custom name displays proudly on the physical OLED bootscreen upon boot!
 3. **Live Community Leaderboard & Boulder Sync**:
    - Integrates directly with the Cloudflare Worker serverless backend (`/api/sync` and `/api/leaderboard`).
-   - Queries game statistics (`CLICKS`, `FLAPPY`, `JUST_TEN`) via `GET_STATS` and submits verified deltas to the Community Boulder.
+   - Queries telemetry (`clicks`, `flappy`, `just_ten`, `uptime_hrs`) via `\r\nGET_STATS\r\n` and submits verified deltas to the Community Boulder.
    - Shows live podiums and top 10 rankings for Sisyphus, Flappy Bird, and Just Ten.
-4. **RP2350 USB/Picotool Updates**:
-    - The RP2354 PlatformIO profiles enable the Arduino-Pico Picotool USB reset interface.
-    - After that firmware is installed once, `picotool load -f -u -v -x click-rp2350.uf2` uses the running USB interface to reset into ROM PICOBOOT, flash, and reboot without mounting the UF2 mass-storage volume.
-    - The browser cannot launch local executables; it provides a copyable command and downloadable desktop helpers.
+4. **RP2354A / RP2350 USB & Picotool Updates**:
+    - The RP2354 PlatformIO profile (`env:rp2354`) enables the Arduino-Pico Picotool USB reset interface (`ENABLE_PICOTOOL_USB=1`).
+    - After firmware is installed, `picotool load -f -u -v -x click-rp2350.uf2` uses the running USB interface to reset into ROM PICOBOOT, flash, and reboot without mounting the UF2 mass-storage volume.
+    - Web flasher also provides downloadable desktop helpers (`flash-rp2350.bat` / `flash-rp2350.sh`) and drag-and-drop UF2 boot-volume validation.
 
 
 ---

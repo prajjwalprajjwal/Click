@@ -105,6 +105,8 @@ flowchart TD
     LDO -->|+3V3 Rail| OLED[128x64 OLED\nI2C1: GP2/GP3]
     LDO -->|+3V3 Rail| RTC[PCF8563 RTC\nI2C1: GP2/GP3]
     LDO -->|+3V3 Rail| LED[2x SK6812 LEDs\nDIN: GP11]
+    LDO -->|+3V3 Rail| BUZZ[Piezo Buzzer\nGP27 Driver]
     ETA -->|STAT: GP1| MCU
     BATT -->|R11/R12 Divider| MCU[BAT_ADC: GP29]
 ```
+

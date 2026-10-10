@@ -57,7 +57,7 @@ Returns current community boulder stats and Top 10 leaderboards across all three
 ```
 
 ### `POST /api/sync`
-Syncs stats from Web Flasher with human-speed rate limiting:
+Syncs stats from Web Flasher with human-speed rate limiting (`chip_id` is the 16-character RP2354A Unique Board ID or 12-character ESP32 eFuse MAC):
 ```json
 {
   "chip_id": "3C71BF89A1B2",

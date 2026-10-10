@@ -186,11 +186,8 @@ public:
         Serial.flush();
         display.ssd1306_command(SSD1306_DISPLAYOFF);
         delay(5);
-        CLICK_I2C.end();
 
-        // 1. High-Z with weak pullup (matching external hardware pullups, 0µA current)
-        pinMode(I2C_SDA, INPUT_PULLUP);
-        pinMode(I2C_SCL, INPUT_PULLUP);
+        // Keep CLICK_I2C intact (SDA & SCL held HIGH by 4.7k external pullups, 0µA current)
         pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
 #if ACTION_BUTTON_PIN >= 0
         pinMode(ACTION_BUTTON_PIN, INPUT_PULLUP);
@@ -284,16 +281,6 @@ public:
         clearI2CBus(I2C_SDA, I2C_SCL);
         CLICK_I2C.begin(I2C_SDA, I2C_SCL, 400000);
 #else
-        if (OLED_RST_PIN >= 0) {
-            pinMode(OLED_RST_PIN, OUTPUT);
-            digitalWrite(OLED_RST_PIN, LOW);
-            delay(20);
-            digitalWrite(OLED_RST_PIN, HIGH);
-            delay(50);
-        } else {
-            delay(20);
-        }
-
         // Re-enable input buffers on active pins
         gpio_set_input_enabled(MODE_BUTTON_PIN, true);
         pinMode(MODE_BUTTON_PIN, INPUT_PULLUP);
@@ -307,18 +294,9 @@ public:
         pinMode(BATTERY_ADC_PIN, INPUT);
 #endif
 #if ACTION_BUTTON_PIN >= 0
+        gpio_set_input_enabled(ACTION_BUTTON_PIN, true);
         pinMode(ACTION_BUTTON_PIN, INPUT_PULLUP);
 #endif
-
-        clearI2CBus(I2C_SDA, I2C_SCL);
-#if defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
-        CLICK_I2C.setSDA(I2C_SDA);
-        CLICK_I2C.setSCL(I2C_SCL);
-        CLICK_I2C.begin();
-#else
-        CLICK_I2C.begin(I2C_SDA, I2C_SCL);
-#endif
-        CLICK_I2C.setClock(400000);
 #if defined(WS2812_PIN) && (WS2812_PIN >= 0)
         WS2812Driver::reinit();
 #endif
@@ -326,16 +304,83 @@ public:
     }
 
     /**
-     * @brief Full Light Sleep Execution Wrapper with hardware re-initialization
+     * @brief Full Light Sleep Execution Wrapper with double-click wake loop
      */
     static void enter_light_sleep() {
         prepare_for_light_sleep();
 
 #if defined(ESP32)
-        // Enter Light Sleep (Synchronous execution blocks here until wake event)
-        esp_light_sleep_start();
-#elif defined(TARGET_RP2354) || defined(ARDUINO_ARCH_RP2040)
-        // Wait for both buttons to be released
+        while (isModeButtonPressed() || isActionButtonPressed()) {
+            delay(10);
+        }
+
+        while (true) {
+            esp_light_sleep_start();
+            delay(20);
+
+            // Identify which button triggered the first click
+            uint8_t firstPressedButton = 0;
+            if (isModeButtonPressed() && !isActionButtonPressed()) firstPressedButton = 1;
+            else if (isActionButtonPressed() && !isModeButtonPressed()) firstPressedButton = 2;
+            else firstPressedButton = 1;
+
+            // Wait for button release (max 3s to avoid stuck-in-pocket hold waking)
+            uint32_t pressStart = millis();
+            while (isModeButtonPressed() || isActionButtonPressed()) {
+                delay(10);
+                if ((millis() - pressStart) > 3000) break;
+            }
+
+            if (isModeButtonPressed() || isActionButtonPressed()) {
+                while (isModeButtonPressed() || isActionButtonPressed()) delay(50);
+                delay(50);
+                continue;
+            }
+            delay(40); // Debounce
+
+            // Double-click wake window (500ms)
+            // MUST BE THE SAME BUTTON!
+            bool sameButtonSecondClick = false;
+            uint32_t windowStart = millis();
+            constexpr uint32_t DOUBLE_CLICK_WINDOW_MS = 500;
+            while ((millis() - windowStart) < DOUBLE_CLICK_WINDOW_MS) {
+                bool mode = isModeButtonPressed();
+                bool action = isActionButtonPressed();
+
+                if (firstPressedButton == 1) { // First was MODE
+                    if (mode && !action) {
+                        sameButtonSecondClick = true;
+                        break;
+                    } else if (action) {
+                        sameButtonSecondClick = false; // Different key pressed! Cancel wake.
+                        break;
+                    }
+                } else if (firstPressedButton == 2) { // First was ACTION
+                    if (action && !mode) {
+                        sameButtonSecondClick = true;
+                        break;
+                    } else if (mode) {
+                        sameButtonSecondClick = false; // Different key pressed! Cancel wake.
+                        break;
+                    }
+                }
+                delay(15);
+            }
+
+            if (sameButtonSecondClick) {
+                while (isModeButtonPressed() || isActionButtonPressed()) {
+                    delay(10);
+                }
+                delay(30);
+                break; // Fully wake up!
+            }
+
+            while (isModeButtonPressed() || isActionButtonPressed()) {
+                delay(10);
+            }
+        }
+#else
+        // Wait for both buttons to be released before arming sleep loop
         while (isModeButtonPressed() || isActionButtonPressed()) {
             delay(10);
         }
@@ -343,21 +388,98 @@ public:
         // Switch clk_sys down to direct XOSC 12MHz for ultra-low power consumption (< 1mA)
         set_sys_clock_khz(12000, false);
 
-        // Requirement 1: Any button (MODE or ACTION) wakes the device from sleep!
-        while (!isModeButtonPressed() && !isActionButtonPressed()) {
-            delay(20); // Invokes ARM Cortex-M33 __wfi()
+        // DOUBLE-CLICK SAME-BUTTON WAKE LOOP
+        // The first click wakes the MCU internally, but does NOT turn on the whole device
+        // (display, LEDs, and audio remain completely off).
+        // Only if a second click occurs on the SAME button within 500ms, does the device fully wake up!
+        while (true) {
+            // Low-power sleep: Cortex-M33 __wfi()
+            uint8_t firstPressedButton = 0; // 1 = MODE, 2 = ACTION
+
+            while (true) {
+                bool mode = isModeButtonPressed();
+                bool action = isActionButtonPressed();
+                if (mode && !action) {
+                    firstPressedButton = 1; // MODE
+                    break;
+                } else if (action && !mode) {
+                    firstPressedButton = 2; // ACTION
+                    break;
+                }
+                delay(20); // sleep_ms(20) invokes __wfi()
+            }
+
+            // First click detected!
+            // 1. Wait for button release (max 3s safety threshold to prevent stuck buttons from waking)
+            uint32_t pressStart = millis();
+            while (isModeButtonPressed() || isActionButtonPressed()) {
+                delay(10);
+                if ((millis() - pressStart) > 3000) break;
+            }
+
+            // If button is still held after 3s, wait for release and stay asleep
+            if (isModeButtonPressed() || isActionButtonPressed()) {
+                while (isModeButtonPressed() || isActionButtonPressed()) {
+                    delay(50);
+                }
+                delay(50);
+                continue;
+            }
+
+            delay(40); // Debounce settling time
+
+            // 2. Check for second click within 500ms window
+            // CRITICAL REQUIREMENT: Must be double-clicking the SAME button!
+            // Clicking one key and pressing another does NOT wake up the device!
+            bool sameButtonSecondClick = false;
+            uint32_t windowStart = millis();
+            constexpr uint32_t DOUBLE_CLICK_WINDOW_MS = 500;
+
+            while ((millis() - windowStart) < DOUBLE_CLICK_WINDOW_MS) {
+                bool mode = isModeButtonPressed();
+                bool action = isActionButtonPressed();
+
+                if (firstPressedButton == 1) { // First button was MODE
+                    if (mode && !action) {
+                        sameButtonSecondClick = true; // Same button (MODE) pressed twice!
+                        break;
+                    } else if (action) {
+                        // Different button pressed! Cancel and reject wake.
+                        sameButtonSecondClick = false;
+                        break;
+                    }
+                } else if (firstPressedButton == 2) { // First button was ACTION
+                    if (action && !mode) {
+                        sameButtonSecondClick = true; // Same button (ACTION) pressed twice!
+                        break;
+                    } else if (mode) {
+                        // Different button pressed! Cancel and reject wake.
+                        sameButtonSecondClick = false;
+                        break;
+                    }
+                }
+                delay(15);
+            }
+
+            if (sameButtonSecondClick) {
+                // Same button double-clicked within 500ms confirmed!
+                // Wait for button release so it doesn't trigger an accidental in-game click action
+                while (isModeButtonPressed() || isActionButtonPressed()) {
+                    delay(10);
+                }
+                delay(30); // Debounce
+                break; // Exit sleep loop to wake up the whole device!
+            }
+
+            // If different button pressed or window expired without second click:
+            // Remain in sleep and loop back to __wfi()
+            while (isModeButtonPressed() || isActionButtonPressed()) {
+                delay(10);
+            }
         }
 
-        // Wait for button release on wake so it doesn't immediately click in the applet
-        while (isModeButtonPressed() || isActionButtonPressed()) {
-            delay(10);
-        }
         // Restore active system clock to 48MHz
         set_sys_clock_khz(48000, false);
-#else
-        while (!isModeButtonPressed() && !isActionButtonPressed()) {
-            delay(10);
-        }
 #endif
 
         restore_after_light_sleep();
