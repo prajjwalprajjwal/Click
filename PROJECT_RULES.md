@@ -64,8 +64,9 @@ The following files and subsystems are locked and **must not be edited, refactor
   - Power Isolation: UART TX0 = `GPIO 1`, UART RX0 = `GPIO 3` (isolated with pad holds in sleep).
 
 ### C. Web Flasher Core Engine
-- `web_flasher/index.html` & `web_flasher/flasher.html` (core WebSerial bindings and `<esp-web-install-button>` logic).
-- `web_flasher/app.js` (dynamic manifest resolution and eFuse MAC query engine).
+- `web_flasher/index.html` & `web_flasher/flasher.html` (core WebUSB/WebSerial bindings and install flows).
+- `web_flasher/rp2350-flash.js` & `web_flasher/lib/picoboot/` (in-browser WebUSB Picoboot driver & BOOTSEL flashing engine).
+- `web_flasher/app.js` (telemetry discovery, device renaming, and leaderboard sync engine).
 - `tools/flasher/serve_flasher.py` & `run_flasher.bat`.
 
 ---
@@ -146,19 +147,26 @@ The following files and subsystems are locked and **must not be edited, refactor
 ```text
 Click/
 ├── platformio.ini                    # Build configurations & asset pre-hooks (default: rp2354)
-├── hardware/                         # Schematics, PCBs & artwork
+├── hardware/                         # Schematics, PCBs, 3D enclosures & manufacturing packages
+│   ├── Enclosure/                    # SolidWorks CAD models & 3D printable STL files
+│   │   ├── Assem4.SLDASM             # Master enclosure assembly
+│   │   ├── Click 4.SLDPRT            # Device case part model
+│   │   ├── Click4_PCB.SLDPRT         # PCB envelope reference
+│   │   └── STLs/                     # 3D printable STLs (Case, Case for Hook, Back Plate options)
 │   ├── PCB/
 │   │   ├── Click4/                   # Active production PCBA (Raspberry Pi RP2354A)
 │   │   ├── Click1/                   # Legacy prototype KiCad PCB (ESP32-WROOM-32E)
-│   │   └── Resources/                # Mechanical templates and edge cut DXFs
+│   │   └── Resources/                # Mechanical templates, edge cut DXFs & vector silkscreen
+│   ├── V4 Production Files/          # Turnkey manufacturing packages (JLCPCB & JLC3DP archives)
 │   └── vector_designs.ai             # Laser cutting & case artwork
 ├── server/                           # Cloudflare Worker + D1 Serverless Backend
-│   ├── worker.js                     # Edge API routes (/api/leaderboard, /api/sync)
+│   ├── worker.js                     # Edge API routes (/api/leaderboard, /api/sync, /api/user)
 │   ├── schema.sql                    # D1 SQLite schema (devices, global_stats, sync_log)
-│   └── wrangler.toml                 # Cloudflare Worker deployment configuration
+│   ├── wrangler.toml                 # Cloudflare Worker deployment configuration
+│   └── README.md                     # Server deployment & API documentation
 ├── firmware/                         # Embedded C++ firmware
-│   ├── assets/screens/               # Raw PNG images (128x64, 1-bit)
-│   ├── scripts/                      # Pre-build asset converter & flasher scripts
+│   ├── assets/screens/               # Raw PNG images (128x64, 1-bit) & documentation
+│   ├── scripts/                      # Pre-build asset converter & cross-platform flasher scripts
 │   └── src/                          # Application source code
 │       ├── main.cpp                  # Entry point & applet registry
 │       ├── system/                   # Core OS, drivers & power management
@@ -182,15 +190,21 @@ Click/
 │       ├── fonts/                    # GFX typography (Rajdhani font family)
 │       ├── screens/                  # Milestone screen renderers
 │       └── generated_assets/         # Auto-generated bitmaps
-├── web_flasher/                      # Browser WebSerial updater & leaderboard hub
-│   ├── index.html                    # Web flasher UI
-│   ├── flasher.html                  # Full-featured WebSerial personalizer & sync
+├── web_flasher/                      # Browser WebUSB & WebSerial updater & leaderboard hub
+│   ├── index.html                    # Modern WebUSB/WebSerial flasher UI
+│   ├── flasher.html                  # Full-featured standalone flasher UI
 │   ├── app.js                        # Device discovery, WebSerial & leaderboard sync
+│   ├── rp2350-flash.js               # In-browser WebUSB Picoboot flasher & BOOTSEL flow
+│   ├── rp2350-flash.css              # WebUSB installer & modal responsive styling
+│   ├── lib/                          # In-browser flashing drivers (picoboot WebUSB driver, uf2 parser)
 │   ├── manifest.json                 # WebSerial firmware manifest
-│   └── versions.json                 # Firmware release catalog
+│   ├── versions.json                 # Firmware release catalog with checksums
+│   ├── releases/                     # Multi-version release archive (v0.1.1, v0.1.0, v0.0.1)
+│   ├── flash-rp2350.bat / .sh        # Desktop Picotool update helper scripts
+│   └── README.md                     # Web flasher architecture & hosting guide
 ├── tools/                            # Python build tools & local servers
-│   ├── flasher/                      # CLI flasher & local web server
-│   ├── release/                      # Interactive semver release manager
+│   ├── flasher/                      # CLI flasher & local web server (serve_flasher.py, flash_device.py)
+│   ├── release/                      # Interactive semver release manager (release_manager.py)
 │   └── converters/                   # Asset & font converters
 ├── docs/                             # Architecture & hardware specs
 │   ├── hardware_and_pinouts.md       # Authoritative electrical pinouts (RP2354A & ESP32)
@@ -200,6 +214,7 @@ Click/
 ├── build_release.bat                 # [1-Click] Interactive release bumper
 ├── flash_device.bat                  # [1-Click] Desktop CLI serial flasher
 ├── run_flasher.bat                   # [1-Click] Launch local web flasher server
+├── LICENSE                           # CC BY-NC-SA 4.0 International License
 ├── CHANGELOG.md                      # Master architecture & release history
 ├── PROJECT_RULES.md                  # Strict guidelines & code freeze rules
 └── README.md                         # Master documentation entry point

@@ -1,6 +1,6 @@
 # Clicker Project 🎮
 
-Official repository for the Clicker handheld device ecosystem, encompassing production firmware, hardware schematics, PCB designs, automated asset build pipelines, and browser-based WebSerial flashing tools.
+Official repository for the Clicker handheld device ecosystem, encompassing production firmware, hardware schematics, PCB designs, CAD enclosure models, automated asset build pipelines, and browser-based WebUSB & WebSerial flashing tools.
 
 ---
 
@@ -11,23 +11,40 @@ Click/
 ├── README.md                          <-- Master documentation and system overview
 ├── PROJECT_RULES.md                  <-- Protected subsystems, NVS rules & coding freeze
 ├── CHANGELOG.md                      <-- Comprehensive release history & architecture decisions
+├── LICENSE                           <-- CC BY-NC-SA 4.0 International License
 ├── platformio.ini                    <-- PlatformIO configuration & automated build flags
 ├── build_release.bat                 <-- 1-Click Interactive firmware release packager
-├── run_flasher.bat                   <-- 1-Click Localhost WebSerial server runner
+├── run_flasher.bat                   <-- 1-Click Localhost web flasher server runner
 ├── flash_device.bat                  <-- 1-Click Desktop CLI serial flasher
-├── hardware/                         <-- Electrical schematics & mechanical designs
-│   ├── vector_designs.ai             <-- Vector graphics & enclosure laser/artwork
-│   └── PCB/                          <-- KiCad PCB manufacturing & CAD files
-│       ├── Click1/                   <-- Active prototype KiCad PCB & schematic (ESP32-WROOM-32E)
-│       ├── Click4/                   <-- Next-Gen RP2354A PCB (JLCPCB PCBA Production V0.0.1)
-│       └── Resources/                <-- Edge cut DXF files and mechanical templates
+├── hardware/                         <-- Electrical schematics, 3D mechanical designs & production files
+│   ├── Enclosure/                    <-- CAD enclosure assembly and 3D printable parts
+│   │   ├── Assem4.SLDASM             <-- SolidWorks master enclosure assembly
+│   │   ├── Click 4.SLDPRT            <-- SolidWorks case part model
+│   │   ├── Click4_PCB.SLDPRT         <-- SolidWorks PCB envelope reference
+│   │   └── STLs/                     <-- Production 3D-printable stereolithography meshes
+│   │       ├── Case.STL              <-- Main device housing
+│   │       ├── Case for Hook.STL     <-- Device housing with keychain/lanyard loop
+│   │       ├── Back Plate w window.STL <-- Back cover with sensor/battery window
+│   │       └── Back Plate w Hook.STL   <-- Back cover with keychain anchor
+│   ├── PCB/                          <-- KiCad PCB manufacturing & CAD files
+│   │   ├── Click4/                   <-- Active production PCBA (Raspberry Pi RP2354A)
+│   │   │   ├── Click4.kicad_sch      <-- Production PCBA schematic
+│   │   │   ├── Click4.kicad_pcb      <-- 4-layer impedance-controlled PCB layout
+│   │   │   ├── Click4.step           <-- 3D MCAD export for enclosure fit check
+│   │   │   └── production/           <-- JLCPCB Gerbers, drill files, BOM & CPL
+│   │   ├── Click1/                   <-- Legacy prototype KiCad PCB & schematic (ESP32-WROOM-32E)
+│   │   └── Resources/                <-- Edge cut DXFs, silkscreen vector artwork & graphics
+│   ├── V4 Production Files/          <-- Ready-to-order manufacturing packages
+│   │   ├── for JLCPCB.zip            <-- PCBA fabrication & assembly production archive
+│   │   └── for JLC3DP.zip            <-- 3D printing enclosure fabrication archive
+│   └── vector_designs.ai             <-- Vector graphics & enclosure laser engraving artwork
 ├── server/                           <-- Cloudflare Worker + D1 Serverless Leaderboard Backend
-│   ├── worker.js                     <-- Edge API routes (/api/leaderboard, /api/sync)
+│   ├── worker.js                     <-- Edge API routes (/api/leaderboard, /api/sync, /api/user)
 │   ├── schema.sql                    <-- D1 SQLite schema (devices, global_stats, sync_log)
 │   ├── wrangler.toml                 <-- Cloudflare Worker deployment configuration
 │   └── README.md                     <-- 3-minute zero-cost deployment guide
 ├── firmware/                         <-- Modular C++ embedded firmware
-│   ├── assets/screens/               <-- 1-bit screen bitmaps & sprites (.png)
+│   ├── assets/screens/               <-- 1-bit screen bitmaps & sprites (.png) + README.md
 │   ├── scripts/
 │   │   ├── pre_build_assets.py       <-- PlatformIO pre-build hook (auto-converts assets)
 │   │   ├── convert_assets.py         <-- Converts PNGs to C PROGMEM bitmap headers
@@ -37,35 +54,50 @@ Click/
 │       ├── main.cpp                  <-- Application entry point, serial protocol & registry
 │       ├── system/                   <-- Core OS, drivers & power management (untouched by applets)
 │       │   ├── Applet.h              <-- Base class interface for all applets
-│       │   ├── OSManager.h / .cpp    <-- Applet scheduler & sleep lifecycle
-│       │   ├── PowerManager.h        <-- Light/Deep sleep, UART isolation & I2C recovery
+│       │   ├── OSManager.h / .cpp    <-- Applet scheduler & 3-stage sleep lifecycle
+│       │   ├── PowerManager.h        <-- 12MHz XOSC sleep, __wfi(), double-click wake & I2C safety
+│       │   ├── PinConfig.h           <-- Authoritative pin routing (RP2354A & ESP32)
 │       │   ├── Display.h             <-- SSD1306 OLED singleton & 400kHz fast I2C
-│       │   ├── InputManager.h / .cpp <-- Debounced button state machine & hold triggers
-│       │   ├── battery.hpp           <-- Battery voltage, percentage & charging status
-│       │   └── device_info.hpp / .cpp<-- eFuse MAC ID & customizable owner name
+│       │   ├── InputManager.h / .cpp <-- Debounced button state machine & dual-key readers
+│       │   ├── battery.hpp           <-- Non-linear LiPo curve, ADC filter & ETA6003 STAT
+│       │   ├── WS2812.h              <-- PIO driver for 2x SK6812 RGB LEDs (GP11 DIN)
+│       │   ├── SoundFX.h             <-- Non-blocking audio buzzer driver (GP27)
+│       │   ├── HardwareDiagnostics.h / .cpp <-- Interactive & automated hardware test suite
+│       │   └── device_info.hpp / .cpp<-- RP2354 Unique Board ID / eFuse MAC & custom bootscreen name
 │       ├── applets/                  <-- Self-contained, modular games & apps
 │       │   ├── clicker/              <-- Sisyphus uphill clicker game & physics engine
 │       │   ├── timing_game/          <-- "Just 10 Seconds" accuracy timing game
 │       │   ├── flappy_bird/          <-- Flappy Bird arcade obstacle game
 │       │   ├── settings/             <-- Hardware status, voltage & device ID screen
 │       │   └── screensaver/          <-- Snowfall particle animation on idle
-│       ├── fonts/                    <-- Custom Adafruit GFX typography headers
+│       ├── fonts/                    <-- Custom Adafruit GFX typography headers (Rajdhani)
 │       ├── screens/                  <-- Legacy milestone overlay renderers
 │       └── generated_assets/         <-- Auto-generated C bitmap headers
-├── web_flasher/                      <-- WebSerial flashing & leaderboard site (flashclick.uprajjwal.com.np)
-│   ├── index.html                    <-- Web application entry point
-│   ├── flasher.html                  <-- Full-featured WebSerial flasher, personalizer & leaderboard UI
+├── web_flasher/                      <-- WebUSB & WebSerial flasher, personalizer & leaderboard site
+│   ├── index.html                    <-- Modern WebUSB/WebSerial application entry point
+│   ├── flasher.html                  <-- Full-featured standalone flasher UI
 │   ├── app.js                        <-- WebSerial engine, personalization & leaderboard sync
+│   ├── rp2350-flash.js               <-- In-browser WebUSB Picoboot flasher & BOOTSEL flow
+│   ├── rp2350-flash.css              <-- WebUSB installer & modal responsive styling
 │   ├── style.css                     <-- Cyberpunk terminal responsive styling
-│   ├── manifest.json                 <-- ESP Web Tools manifest configuration
-│   └── versions.json                 <-- Firmware release registry
+│   ├── lib/                          <-- In-browser flashing drivers
+│   │   ├── picoboot/                 <-- Native WebUSB Picoboot protocol driver (RP2350/RP2354)
+│   │   └── uf2.js                    <-- Browser UF2 binary encoder/decoder
+│   ├── flash-rp2350.bat / .sh        <-- Desktop Picotool update helper scripts
+│   ├── manifest.json                 <-- WebSerial firmware manifest
+│   ├── versions.json                 <-- Release catalog with hashes and download links
+│   ├── releases/                     <-- Multi-version release archive (v0.1.1, v0.1.0, v0.0.1)
+│   └── README.md                     <-- Web flasher guide, WebUSB/WebSerial docs & hosting
 ├── tools/                            <-- Build & developer utilities
 │   ├── release/release_manager.py    <-- Interactive version bumper & binary packager
-│   ├── flasher/serve_flasher.py      <-- Zero-config HTTP server for web_flasher
+│   ├── flasher/                      <-- Flasher runner & desktop CLI scripts
+│   │   ├── serve_flasher.py          <-- Zero-config HTTP server for web_flasher
+│   │   └── flash_device.py           <-- Desktop serial flasher script
 │   └── converters/                   <-- TTF font and image conversion scripts
 └── docs/                             <-- Architectural specifications
-    ├── hardware_and_pinouts.md       <-- Detailed pin profiles (ESP32 vs RP2354A)
-    ├── device_identification_and_leaderboard.md <-- eFuse MAC & database schema
+    ├── hardware_and_pinouts.md       <-- Detailed pin profiles (RP2354A vs ESP32)
+    ├── power_management_and_battery_architecture.md <-- Power optimization, battery fuel gauging & sleep currents
+    ├── device_identification_and_leaderboard.md <-- Unique hardware ID & database schema
     └── leaderboard_architecture.md   <-- Cloudflare Worker API & score sync model
 ```
 
@@ -179,6 +211,9 @@ All input debouncing, display clocking (400kHz Fast I2C), light sleep (15s), dee
 
 ### 1. Web Flasher (Recommended)
 * **Online**: Connect your device and visit [flashclick.uprajjwal.com.np](https://flashclick.uprajjwal.com.np).
+  * **Click 4 (RP2354A)**: Hold the `ACTION` button (`BOOTSEL`) while plugging in USB-C, then click **Connect & Install Firmware** to flash directly via in-browser **WebUSB (Picoboot)**. No local drivers or utilities needed.
+  * **Click 1 (ESP32)**: Connect via USB-C and flash directly via **WebSerial** using ESP Web Tools.
+  * **Live Renaming & Community Boulder Sync**: Connect at runtime via WebSerial (115200 baud) to auto-detect device ID, personalize your custom bootscreen name, and sync clicks to the global leaderboard.
 * **Local Server**: Double-click [`run_flasher.bat`](run_flasher.bat) or run:
   ```bash
   python tools/flasher/serve_flasher.py
@@ -218,7 +253,7 @@ python firmware/scripts/convert_assets.py
 ```
 
 ### 5. Official Release Packaging
-To build an official release, bump semantic versions, and generate 3-part manifests for WebSerial:
+To build an official release, bump semantic versions, and generate multi-target binary packages (UF2 + BIN):
 ```bash
 # Windows
 .\build_release.bat
@@ -233,13 +268,13 @@ The Click ecosystem features a fully connected, zero-maintenance, zero-cost ($0/
 
 ```mermaid
 flowchart LR
-    DEV["🎮 Clicker Device\n(ESP32 / RP2354A)"]
+    DEV["🎮 Clicker Device\n(RP2354A / ESP32)"]
     WEB["💻 Web Flasher & Hub\n(flashclick.uprajjwal.com.np)"]
     CF["⚡ Cloudflare Worker\n(/api/sync, /api/leaderboard)"]
     D1[("🗄️ Cloudflare D1\n(SQLite at Edge)")]
     SITE["🏆 Community Leaderboard\n(click.uprajjwal.com.np)"]
 
-    DEV <-->|"WebSerial (115200 Baud)\nGET_ID / GET_STATS / SET_NAME"| WEB
+    DEV <-->|"WebUSB (Flashing) / WebSerial (Telemetry)\nGET_ID / GET_STATS / SET_NAME"| WEB
     WEB -->|"POST /api/sync\n(Atomic delta push)"| CF
     CF <-->|"ACID SQLite Queries\nAnti-Cheat Validation"| D1
     SITE <-->|"GET /api/leaderboard\n(Edge-cached JSON)"| CF
