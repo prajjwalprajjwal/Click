@@ -6,9 +6,11 @@ This document provides the authoritative hardware reference for the Clicker proj
 > **Active Production Hardware**:
 > 1. **Click 4 (RP2354A) - Primary Active Platform**:
 >    - KiCad & PCBA Files: `hardware/PCB/Click4/` (`Click4.kicad_sch`, `Click4.kicad_pcb`, `Click4.step`).
+>    - CAD Enclosure: SolidWorks assemblies and 3D printable STLs in `hardware/Enclosure/`.
+>    - Turnkey Fab Packages: JLCPCB PCBA and JLC3DP printing archives in `hardware/V4 Production Files/`.
 >    - Features the Raspberry Pi **RP2354A** MCU (Dual Cortex-M33 with 4MB embedded QSPI Flash).
 >    - Active default PlatformIO environment: `env:rp2354` in `platformio.ini`.
->    - Supports native USB 2.0 Full Speed flashing and debugging via `picotool`.
+>    - Supports native in-browser WebUSB (Picoboot) flashing, UF2 drag-and-drop, and USB CDC serial telemetry.
 > 2. **Click 1 (ESP32-WROOM-32E) - Initial Hand-Assembled Prototype**:
 >    - KiCad Files: `hardware/PCB/Click1/` (`click.kicad_sch`, `click.kicad_pcb`).
 >    - Maintained for legacy compatibility under `env:esp32doit-devkit-v1`.
@@ -37,7 +39,7 @@ This document provides the authoritative hardware reference for the Clicker proj
   - **Audio Buzzer**: Magnetic piezo buzzer driven via MMBT3904 NPN BJT on `GP27`
 - **Native USB Interface**:
   - Direct USB DP/DM routing on RP2354 pads to 16-pin USB Type-C receptacle (`J1`) with 5.1kΩ CC resistors.
-  - Native CDC serial telemetry & WebSerial flashing at 115200 baud.
+  - Native CDC serial telemetry at 115200 baud, native WebUSB Picoboot in-browser flashing, and UF2 bootloader support.
 
 ---
 

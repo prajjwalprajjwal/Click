@@ -1,6 +1,6 @@
 # Unique Device Identification & Leaderboard Persistence Architecture
 
-This document describes how Clicker devices are uniquely identified via immutable factory hardware signatures, how the WebSerial browser flasher auto-recognizes returning users, and the multi-applet database synchronization model for the community leaderboard.
+This document describes how Clicker devices are uniquely identified via immutable factory hardware signatures, how the Web Flasher (WebUSB & WebSerial) auto-recognizes returning users, and the multi-applet database synchronization model for the community leaderboard.
 
 ---
 

@@ -1,6 +1,6 @@
 # Web-Connected Leaderboard & Flashing Architecture
 
-This document specifies the end-to-end integration architecture connecting the hardware Clicker device, the browser-based WebSerial flasher, and the community leaderboard.
+This document specifies the end-to-end integration architecture connecting the hardware Clicker device, the browser-based Web Flasher (WebUSB & WebSerial), and the community leaderboard.
 
 ---
 
@@ -12,7 +12,7 @@ flowchart LR
         DEV["Clicker Device\n(RP2354A / ESP32)"]
     end
 
-    subgraph Flashing["WebSerial Interface"]
+    subgraph Flashing["Browser Web Installer & Hub"]
         WF["Web Flasher & Device Hub\n(flashclick.uprajjwal.com.np)"]
     end
 
@@ -25,7 +25,7 @@ flowchart LR
         SITE["Community Leaderboard\n(click.uprajjwal.com.np)"]
     end
 
-    DEV <-->|"WebSerial (115200 Baud)\nGET_STATS, SET_CLICKS"| WF
+    DEV <-->|"WebUSB (Flashing) / WebSerial (Telemetry)\nGET_STATS, SET_CLICKS, SET_NAME"| WF
     WF -->|"POST /api/sync\n(Delta submission & anti-cheat)"| API
     API <-->|"ACID SQLite Transactions"| DB
     SITE <-->|"GET /api/leaderboard\n(Edge cached)"| API

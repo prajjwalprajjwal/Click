@@ -1,6 +1,6 @@
 # Clicker Web Flasher & Release Infrastructure
 
-Browser firmware installer for the open-source Clicker device ecosystem. ESP32 updates use [ESP Web Tools](https://esphome.github.io/esp-web-tools/) over Web Serial; RP2350 updates use either a validated UF2 boot-volume copy or desktop Picotool over USB.
+Browser firmware installer and device hub for the open-source Clicker device ecosystem. Click 4 (RP2354 / RP2350) updates feature **native in-browser WebUSB flashing** via Picoboot (with drag-and-drop UF2 volume and desktop Picotool fallbacks); legacy Click 1 (ESP32) updates use Web Serial via [ESP Web Tools](https://esphome.github.io/esp-web-tools/).
 
 ---
 
@@ -21,10 +21,10 @@ Browser firmware installer for the open-source Clicker device ecosystem. ESP32 u
    - Integrates directly with the Cloudflare Worker serverless backend (`/api/sync` and `/api/leaderboard`).
    - Queries telemetry (`clicks`, `flappy`, `just_ten`, `uptime_hrs`) via `\r\nGET_STATS\r\n` and submits verified deltas to the Community Boulder.
    - Shows live podiums and top 10 rankings for Sisyphus, Flappy Bird, and Just Ten.
-5. **RP2354A / RP2350 USB & Picotool Updates**:
-    - The RP2354 PlatformIO profile (`env:rp2354`) enables the Arduino-Pico Picotool USB reset interface (`ENABLE_PICOTOOL_USB=1`).
-    - Web flasher provides WebUSB flashing, downloadable desktop helpers (`flash-rp2350.bat` / `flash-rp2350.sh`), and drag-and-drop UF2 boot-volume validation.
-
+5. **In-Browser WebUSB Picoboot Flashing (RP2354A / RP2350)**:
+   - Direct 1-click in-browser flashing for RP2354 using the integrated WebUSB Picoboot driver (`web_flasher/lib/picoboot/`).
+   - Connect the device in BOOTSEL mode (hold ACTION button while plugging in USB) and flash directly without installing desktop utilities, drivers, or Python.
+   - Includes full fallback options: drag-and-drop `firmware.uf2` to the mounted `RP2350` USB mass storage volume, or run desktop helper scripts (`flash-rp2350.bat` / `flash-rp2350.sh`).
 
 ---
 
@@ -68,22 +68,28 @@ Then open your browser and navigate to:
 ```text
 Click/
 ├── web_flasher/
-│   ├── index.html                  # Standalone WebSerial flasher interface
-│   ├── flasher.html                # Embeddable component (uses the shared RP2350 assets)
-│   ├── style.css                   # Modern dark UI stylesheet
-│   ├── rp2350-flash.css            # RP2350 UF2 installer styles
-│   ├── rp2350-flash.js             # RP2350 BOOTSEL-volume validation and copy flow
-│   ├── flash-rp2350.bat            # Windows Picotool helper
-│   ├── flash-rp2350.sh             # Linux/macOS Picotool helper
-│   ├── app.js                      # Controller & version selector logic
-│   ├── manifest.json               # Standalone root manifest
+│   ├── index.html                  # Modern WebUSB/WebSerial flasher UI & device hub
+│   ├── flasher.html                # Full-featured standalone flasher UI
+│   ├── style.css                   # Cyberpunk terminal responsive styling
+│   ├── rp2350-flash.css            # WebUSB installer & modal responsive styling
+│   ├── rp2350-flash.js             # In-browser WebUSB Picoboot flasher & BOOTSEL flow
+│   ├── app.js                      # WebSerial telemetry discovery, rename & leaderboard sync
+│   ├── lib/                        # In-browser flashing drivers
+│   │   ├── picoboot/               # Native WebUSB Picoboot protocol driver (RP2350/RP2354)
+│   │   └── uf2.js                  # In-browser UF2 binary encoder/decoder
+│   ├── flash-rp2350.bat            # Windows Picotool helper script
+│   ├── flash-rp2350.sh             # Linux/macOS Picotool helper script
+│   ├── manifest.json               # WebSerial firmware manifest
+│   ├── versions.json               # Release catalog with hashes and download URLs
 │   ├── firmware.bin                # Active app-only binary (offset 0x10000)
-│   ├── firmware.uf2                # Active RP2354 UF2 image (BOOTSEL drag-and-drop)
+│   ├── firmware.uf2                # Active RP2354 UF2 image (BOOTSEL WebUSB / drag-and-drop)
 │   ├── factory_firmware.bin        # Merged factory binary (offset 0x0)
 │   ├── bootloader.bin              # 2nd stage bootloader (offset 0x1000)
 │   ├── partitions.bin              # Partition table (offset 0x8000)
-│   ├── versions.json               # Release catalog with hashes and download URLs
-│   └── releases/                   # Multi-version release archive (v0.1.1, v0.1.0, etc.)
+│   └── releases/                   # Multi-version release archive
+│       ├── v0.1.1/                 # Release v0.1.1 (UF2 + BIN + manifest)
+│       ├── v0.1.0/                 # Release v0.1.0 (BIN + manifest)
+│       └── v0.0.1/                 # Initial release archive
 ├── tools/
 │   ├── flasher/                    # Local HTTP server & desktop CLI utilities
 │   │   ├── serve_flasher.py        # Zero-dependency localhost Python web server
