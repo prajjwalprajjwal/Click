@@ -33,6 +33,13 @@ SettingsApplet settingsApplet;
 FlappyBirdApplet flappyBirdApplet;
 TetrisApplet tetrisApplet;
 
+// Tetris owns MODE once a session starts (playing or game over) so both
+// buttons can be used for gameplay. Everywhere else (and on the Tetris title
+// screen) MODE keeps its original catalog behaviour.
+static bool appletCapturesModeButton() {
+    return osManager.getCurrentApplet() == &tetrisApplet && tetrisApplet.capturesModeButton();
+}
+
 void onModeButtonClick() {
     if (osManager.recordActivity(1)) {
         return; // Screen was asleep/off; first click wakes the screen silently
@@ -42,12 +49,23 @@ void onModeButtonClick() {
         osManager.switchToApplet(0); // Exit screensaver back to Clicker
         return;
     }
-    // A short MODE press no longer navigates. It is handed to the active applet
-    // so both buttons stay available for gameplay (e.g. Tetris). Applet
-    // navigation now happens on a MODE hold (see onModeButtonHold).
+    if (appletCapturesModeButton()) {
+        // In a Tetris session: a short MODE press is gameplay input, not
+        // navigation. (Tetris reads the raw button state itself.)
+        applet->onModeClick();
+        return;
+    }
+    // Original catalog navigation: a short MODE press advances to the next
+    // applet. Requirement 2: Do NOT beep just before Sisyphus game!
+    const uint8_t count = osManager.getAppletCount();
+    const uint8_t nextIdx = count ? static_cast<uint8_t>((osManager.getCurrentAppletIndex() + 1) % count) : 0;
+    if (nextIdx != 0) {
+        SoundFX::playClick(); // Only click when switching into other applets!
+    }
     if (applet) {
         applet->onModeClick();
     }
+    osManager.switchToNextApplet();
 }
 
 void onModeButtonHold() {
@@ -62,15 +80,23 @@ void onModeButtonHold() {
         osManager.switchToApplet(0); // Wake from screensaver to Clicker
         return;
     }
-    // Holding MODE is the only way to leave a game and return to the applet
-    // catalog: it advances to the next registered applet.
-    // Requirement 2: Do NOT beep just before Sisyphus game!
-    const uint8_t count = osManager.getAppletCount();
-    const uint8_t nextIdx = count ? static_cast<uint8_t>((osManager.getCurrentAppletIndex() + 1) % count) : 0;
-    if (nextIdx != 0) {
-        SoundFX::playClick(); // Only click when switching into other applets!
+    if (appletCapturesModeButton()) {
+        // Tetris session: holding MODE exits the round and returns to the
+        // catalog (the same navigation a normal MODE click performs elsewhere).
+        const uint8_t count = osManager.getAppletCount();
+        const uint8_t nextIdx = count ? static_cast<uint8_t>((osManager.getCurrentAppletIndex() + 1) % count) : 0;
+        if (nextIdx != 0) {
+            SoundFX::playClick();
+        }
+        osManager.switchToNextApplet();
+        return;
     }
-    osManager.switchToNextApplet();
+    // Original behaviour: hold MODE button toggles Settings page.
+    if (applet == &settingsApplet) {
+        osManager.switchToApplet(0); // Return to Clicker
+    } else {
+        osManager.switchToApplet(4); // Jump to Settings
+    }
 }
 
 void onActionButtonClick() {

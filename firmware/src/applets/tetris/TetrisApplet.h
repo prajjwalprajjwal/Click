@@ -16,12 +16,14 @@
  *   MODE held (~1s)         = leave the round and return to the applet catalog
  *                             (handled by main.cpp, not by this applet)
  *
- * A short MODE press no longer navigates between applets, so both buttons are
- * free for gameplay. Navigation only happens when MODE is held, which main.cpp
- * turns into "advance to next applet". Rotation therefore uses the two-button
- * chord, which lets the whole round be played with both hands on the device.
- * Holding both buttons for the OS 4s "both held" event still quits to the
- * title screen.
+ * Tetris is entered from the catalog by tapping ACTION on the title screen.
+ * On the title screen MODE keeps its normal catalog behaviour: short press =
+ * next applet, hold = Settings.
+ *
+ * Once a round has started (playing or game over), capturesModeButton() tells
+ * main.cpp to let this applet own MODE, so short presses become gameplay input
+ * and a hold exits the round to the catalog. Holding both buttons for the OS
+ * 4s "both held" event still quits to the title screen.
  *
  * Button taps/holds are derived from raw button state in update() (same
  * approach as TimingGameApplet), so the 1s OS hold threshold does not apply.
@@ -49,7 +51,7 @@ private:
     // Both buttons must land within this window to count as the rotate chord
     static constexpr uint16_t kComboWindowMs  = 120;
 
-    // Game over input cooldown (prevents accidental immediate restart / MODE navigation)
+    // Game over input cooldown (prevents accidental immediate restart)
     static constexpr uint32_t kGameOverCooldownMs = 1500;
 
     struct ButtonTracker {
@@ -127,6 +129,13 @@ public:
     void cleanup() override;
     void onPrepareSleep() override;
     void onBothHeld() override;
+
+    // True whenever a Tetris session is on screen (playing or game over), so
+    // main.cpp leaves MODE to this applet: short presses are gameplay input and
+    // a hold exits to the catalog. The title screen keeps normal navigation.
+    bool capturesModeButton() const {
+        return gameState != STATE_IDLE;
+    }
 
     void preloadState();
     uint32_t getHighScore() const { return highScore; }
