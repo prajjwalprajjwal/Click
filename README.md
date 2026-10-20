@@ -132,7 +132,7 @@ Detailed technical schematics and electrical specifications can be found in [`do
 
 ## 🕹️ Applet Ecosystem & Gameplay
 
-The firmware features an event-driven `OSManager` hosting four built-in applets and an idle screensaver:
+The firmware features an event-driven `OSManager` hosting five built-in applets and an idle screensaver:
 
 ### 1. Sisyphus Clicker (Default Applet)
 * **Theme**: Sisyphus rolling his eternal boulder up a steep mountain slope.
@@ -150,12 +150,18 @@ The firmware features an event-driven `OSManager` hosting four built-in applets 
 ### 3. Flappy Bird
 * Real-time side-scrolling obstacle game featuring obstacle collision detection, velocity physics, and persistent high scores with red LED flash on game over.
 
-### 4. Settings & System Applet
-* Accessible by holding the **MODE** button.
+### 4. Tetris
+* Full-featured falling-block game on the 10x16 playfield with next-piece preview, line clears, level speed-up, and a persistent 7-bag randomized high score.
+* Entered from the catalog by tapping `ACTION` on the title screen.
+* **In-round controls**: `MODE` tap = move left, `ACTION` tap = move right, hold `ACTION` = soft drop, press **both buttons together** = rotate.
+* **Exit**: hold `MODE` (~1s) to leave the round and return to the catalog. `MODE` short presses are gameplay input only while a round is running.
+
+### 5. Settings & System Applet
+* Accessible by holding the **MODE** button (normal applet navigation).
 * **Page 0 (SYSTEM)**: Shows live battery state (`[CHARGING]`, `[BATTERY]`, `[CHARGED]`), high-precision numerical voltage (`x.xxV`), and a graphical charge bar.
 * **Page 1 (SYSTEM INFO)**: Center-aligned hardware telemetry displaying Firmware version, unique Device ID, and MCU specifications.
 
-### 5. Snowfall Screensaver
+### 6. Snowfall Screensaver
 * Ambient particle simulation that activates automatically when the device remains idle prior to entering sleep.
 
 ---
@@ -164,10 +170,12 @@ The firmware features an event-driven `OSManager` hosting four built-in applets 
 
 | Action | Control | Description |
 |:---|:---|:---|
-| **Cycle Applets** | `MODE` Button (Short Press) | Switch between **Clicker**, **Just Ten**, and **Flappy Bird** (click chime plays except before Sisyphus). |
-| **Settings Menu** | `MODE` Button (Hold > 1s) | Toggle between the currently active applet and the **SYSTEM** settings screen. |
+| **Cycle Applets** | `MODE` Button (Short Press) | Switch between **Clicker**, **Just Ten**, **Flappy Bird**, **Tetris** and **SYSTEM** (click chime plays except before Sisyphus). During a Tetris session (playing or game over), `MODE` is captured for gameplay instead. |
+| **Settings Menu** | `MODE` Button (Hold > 1s) | Jump to the **SYSTEM** settings screen (hold again to return to Clicker). During a Tetris session, holding `MODE` exits the round to the catalog instead. |
 | **Toggle System Info** | `ACTION` Button (in Settings) | Toggle between Battery Telemetry (Page 0) and System Info (Page 1) screens. |
-| **Primary Game Action** | `ACTION` Button (Short Press) | Push boulder in Sisyphus / Flap wings in Flappy Bird / Start & Stop in Just Ten. |
+| **Primary Game Action** | `ACTION` Button (Short Press) | Push boulder in Sisyphus / Flap wings in Flappy Bird / Start & Stop in Just Ten / Start Tetris from its title / move right in Tetris. |
+| **Tetris Rotate** | **Both Buttons Together** | Press `MODE` + `ACTION` at the same time to rotate the falling brick. |
+| **Exit Tetris Round** | `MODE` Button (Hold > 1s, in a round) | Leaves the running round and returns to the applet catalog. |
 | **Wake from Sleep** | **Same-Button Double-Click** (two clicks on the same key within 500ms) | Wakes the device from low-power sleep back to the Sisyphus game (filters accidental single clicks & cross-key bumps). |
 | **Factory Master Reset** | **Both Buttons Held** (> 4s) | Trigger master reset / clear NVS partitions and milestone progress. |
 

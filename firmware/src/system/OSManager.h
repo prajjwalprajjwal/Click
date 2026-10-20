@@ -44,6 +44,7 @@ public:
     void switchToApplet(uint8_t index);
     void switchToNextApplet();
     uint8_t getCurrentAppletIndex() const { return currentAppletIndex; }
+    uint8_t getAppletCount() const { return appletCount; }
     Applet* getCurrentApplet() { return currentApplet; }
     InputManager* getInputManager() { return &inputManager; }
     

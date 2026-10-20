@@ -33,6 +33,18 @@
 
 ## Release History & Changes
 
+### [Unreleased]
+
+- **Tetris Applet (firmware/src/applets/tetris/)**:
+  - Added a 10x16 falling-block game with a 7-bag randomizer, next-piece preview, wall kicks, line clears, level speed-up, and a persistent high score in NVS (`click_stats` -> `tetris_hi`).
+  - Entered from the catalog by tapping `ACTION` on the title screen. In a round: `MODE` tap = move left, `ACTION` tap = move right, hold `ACTION` = soft drop, press **both buttons together** = rotate, hold `MODE` (~1s) = exit the round to the catalog.
+  - The two-button rotate chord uses a 120ms coincidence window and suppresses the individual taps so rotating never also moves the piece.
+- **Per-Applet MODE Capture (Tetris only)**:
+  - Normal navigation is unchanged: a short `MODE` press cycles applets and a `MODE` hold opens Settings.
+  - Tetris captures `MODE` once a session starts (playing or game over) via `capturesModeButton()`. During that window short presses are gameplay input and a hold exits the round to the catalog; the title screen keeps normal navigation.
+  - `OSManager` now exposes `getAppletCount()` so navigation does not hardcode the number of applets.
+  - Registered Tetris at index 3 and moved Settings to index 4.
+
 ### [v0.1.1] - 2026-10-10
 
 - **Persistent Custom Device Name Preservation Across Reflashes**:
