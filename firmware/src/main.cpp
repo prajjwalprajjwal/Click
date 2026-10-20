@@ -12,6 +12,7 @@
 #include "applets/clicker/CounterApplet.h"
 #include "applets/timing_game/TimingGameApplet.h"
 #include "applets/flappy_bird/FlappyBirdApplet.h"
+#include "applets/tetris/TetrisApplet.h"
 #include "applets/settings/SettingsApplet.h"
 #include "applets/screensaver/HomeApplet.h"
 
@@ -30,26 +31,23 @@ CounterApplet counterApplet;
 TimingGameApplet timingGameApplet;
 SettingsApplet settingsApplet;
 FlappyBirdApplet flappyBirdApplet;
+TetrisApplet tetrisApplet;
 
 void onModeButtonClick() {
     if (osManager.recordActivity(1)) {
         return; // Screen was asleep/off; first click wakes the screen silently
-    }
-    // Requirement 2: Do NOT beep just before Sisyphus game!
-    uint8_t curIdx = osManager.getCurrentAppletIndex();
-    uint8_t nextIdx = (curIdx + 1) % 4; // 0 is Sisyphus
-    if (nextIdx != 0) {
-        SoundFX::playClick(); // Only click when switching into other applets!
     }
     Applet* applet = osManager.getCurrentApplet();
     if (applet == &homeApplet) {
         osManager.switchToApplet(0); // Exit screensaver back to Clicker
         return;
     }
+    // A short MODE press no longer navigates. It is handed to the active applet
+    // so both buttons stay available for gameplay (e.g. Tetris). Applet
+    // navigation now happens on a MODE hold (see onModeButtonHold).
     if (applet) {
         applet->onModeClick();
     }
-    osManager.switchToNextApplet();
 }
 
 void onModeButtonHold() {
@@ -60,12 +58,19 @@ void onModeButtonHold() {
     if (applet) {
         applet->onModeHold();
     }
-    // Hold MODE button toggles Settings page
-    if (applet == &settingsApplet) {
-        osManager.switchToApplet(0); // Return to Clicker
-    } else {
-        osManager.switchToApplet(3); // Jump to Settings
+    if (applet == &homeApplet) {
+        osManager.switchToApplet(0); // Wake from screensaver to Clicker
+        return;
     }
+    // Holding MODE is the only way to leave a game and return to the applet
+    // catalog: it advances to the next registered applet.
+    // Requirement 2: Do NOT beep just before Sisyphus game!
+    const uint8_t count = osManager.getAppletCount();
+    const uint8_t nextIdx = count ? static_cast<uint8_t>((osManager.getCurrentAppletIndex() + 1) % count) : 0;
+    if (nextIdx != 0) {
+        SoundFX::playClick(); // Only click when switching into other applets!
+    }
+    osManager.switchToNextApplet();
 }
 
 void onActionButtonClick() {
@@ -246,7 +251,8 @@ void setup() {
     osManager.registerApplet(&counterApplet);     // index 0: Clicker (Default on boot)
     osManager.registerApplet(&timingGameApplet);  // index 1: Just Ten
     osManager.registerApplet(&flappyBirdApplet);  // index 2: Flappy Bird
-    osManager.registerApplet(&settingsApplet);    // index 3: Settings (Hold MODE)
+    osManager.registerApplet(&tetrisApplet);       // index 3: Tetris
+    osManager.registerApplet(&settingsApplet);    // index 4: Settings (Hold MODE)
     
     // Set snowfall applet as screensaver on inactivity
     osManager.setScreensaverApplet(&homeApplet);

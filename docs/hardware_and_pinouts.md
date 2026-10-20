@@ -77,7 +77,7 @@ This document provides the authoritative hardware reference for the Clicker proj
 | **I2C SDA (Display/RTC)** | `GP2` (I2C1 SDA) | `GPIO 21` | Shared 400kHz Fast I2C bus for SSD1306 and PCF8563 |
 | **I2C SCL (Display/RTC)** | `GP3` (I2C1 SCL) | `GPIO 22` | External pull-ups to +3V3 rail |
 | **Primary Input (ACTION)**| `BOOTSEL` / `QSPI_SS` | `GPIO 32` | Dual-purpose hardware game click & flash bootloader |
-| **Secondary Input (MODE)** | `GP0` (Active LOW) | `GPIO 14` | Applet switching & settings hold trigger |
+| **Secondary Input (MODE)** | `GP0` (Active LOW) | `GPIO 14` | In-game input (e.g. move left in Tetris); long hold returns to the applet catalog |
 | **Key Switches** | Cherry MX style PCB sockets | Tactile pushbuttons | High-end mechanical switch tactile feedback |
 | **Battery Charger** | ETA6003Q3Q (`U5`) + 2.2µH Inductor | ETA6003Q3Q | High-efficiency switching Li-Ion charging |
 | **Charger Status (`STAT`)**| `GP1` (Active LOW, 10kΩ pullup `R9`) | `GPIO 33` | LOW = Charging, HIGH = Battery / Unplugged |
