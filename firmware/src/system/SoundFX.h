@@ -104,7 +104,7 @@ public:
         playSequence(chimeNotes, 3);
     }
 
-    // Flappy Bird: wing flap chirp
+    // Floppy Bird: wing flap chirp
     static void playFlap() {
         static const SoundNote flapNotes[] = {
             {900, 15},
@@ -113,7 +113,7 @@ public:
         playSequence(flapNotes, 2);
     }
 
-    // Flappy Bird: pipe passed score chime
+    // Floppy Bird: pipe passed score chime
     static void playScore() {
         static const SoundNote scoreNotes[] = {
             {1046, 40}, // C6
@@ -122,7 +122,7 @@ public:
         playSequence(scoreNotes, 2);
     }
 
-    // Flappy Bird: crash / game over slide
+    // Floppy Bird: crash / game over slide
     static void playGameOver() {
         static const SoundNote crashNotes[] = {
             {320, 60},

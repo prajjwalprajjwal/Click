@@ -245,7 +245,7 @@ void setup() {
     // Register playable main applets (index 0 is active on boot)
     osManager.registerApplet(&counterApplet);     // index 0: Clicker (Default on boot)
     osManager.registerApplet(&timingGameApplet);  // index 1: Just Ten
-    osManager.registerApplet(&flappyBirdApplet);  // index 2: Flappy Bird
+    osManager.registerApplet(&flappyBirdApplet);  // index 2: Floppy Bird
     osManager.registerApplet(&settingsApplet);    // index 3: Settings (Hold MODE)
     
     // Set snowfall applet as screensaver on inactivity
@@ -294,8 +294,8 @@ static void handleSerialTelemetry() {
                     double justTen = timingGameApplet.getBestTimeSec();
                     uint32_t uptimeHrs = totalUptimeMinutes / 60;
 
-                    Serial.printf("{\"event\":\"stats\",\"name\":\"%s\",\"chip_id\":\"%s\",\"clicks\":%llu,\"flappy\":%u,\"just_ten\":%.4f,\"uptime_hrs\":%u}\n",
-                                  dName, chipId, clicks, flappy, justTen, uptimeHrs);
+                    Serial.printf("{\"event\":\"stats\",\"name\":\"%s\",\"chip_id\":\"%s\",\"clicks\":%llu,\"flappy\":%u,\"floppy\":%u,\"just_ten\":%.4f,\"uptime_hrs\":%u}\n",
+                                  dName, chipId, clicks, flappy, flappy, justTen, uptimeHrs);
                 } else if (strstr(cmdBuf, "SET_NAME") != nullptr || strstr(cmdBuf, "RENAME") != nullptr) {
                     char* p = strstr(cmdBuf, "SET_NAME");
                     uint8_t kwLen = p ? 8 : 6;
@@ -339,10 +339,16 @@ static void handleSerialTelemetry() {
                             counterApplet.setLifetimeClicks(val);
                         }
                     }
-                    char* pFlappy = strstr(cmdBuf, "FLAPPY=");
+                    char* pFlappy = strstr(cmdBuf, "FLOPPY=");
                     if (pFlappy) {
                         uint16_t val = static_cast<uint16_t>(strtoul(pFlappy + 7, nullptr, 10));
                         flappyBirdApplet.setHighScore(val);
+                    } else {
+                        pFlappy = strstr(cmdBuf, "FLAPPY=");
+                        if (pFlappy) {
+                            uint16_t val = static_cast<uint16_t>(strtoul(pFlappy + 7, nullptr, 10));
+                            flappyBirdApplet.setHighScore(val);
+                        }
                     }
                     char* pJustTen = strstr(cmdBuf, "JUST_TEN=");
                     if (pJustTen) {
@@ -351,9 +357,10 @@ static void handleSerialTelemetry() {
                             timingGameApplet.setBestTimeUs(static_cast<uint32_t>(sec * 1000000.0));
                         }
                     }
-                    Serial.printf("{\"event\":\"stats_restored\",\"name\":\"%s\",\"clicks\":%llu,\"flappy\":%u,\"just_ten\":%.4f}\n",
+                    Serial.printf("{\"event\":\"stats_restored\",\"name\":\"%s\",\"clicks\":%llu,\"flappy\":%u,\"floppy\":%u,\"just_ten\":%.4f}\n",
                                   DeviceInfo::getCustomName(),
                                   counterApplet.getLifetimeClicks(),
+                                  flappyBirdApplet.getHighScore(),
                                   flappyBirdApplet.getHighScore(),
                                   timingGameApplet.getBestTimeSec());
                 } else if (strstr(cmdBuf, "PING") != nullptr) {

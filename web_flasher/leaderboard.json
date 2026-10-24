@@ -39,9 +39,21 @@
       "perfect_scores_count": 0,
       "leaderboard": []
     },
+    "floppy_bird": {
+      "id": "floppy_bird",
+      "name": "Floppy Bird",
+      "tags": ["GAME", "FIDGET"],
+      "headline": "The classic, on your Click.",
+      "description": "One button, one bird, infinite pipes. Pure tactile fidget, no touch screen, no ads, no algorithm.",
+      "stat_type": "high_score",
+      "primary_metric": "High Score",
+      "unit": "pipes",
+      "sort_direction": "desc",
+      "leaderboard": []
+    },
     "flappy_bird": {
       "id": "flappy_bird",
-      "name": "Flappy Bird",
+      "name": "Floppy Bird",
       "tags": ["GAME", "FIDGET"],
       "headline": "The classic, on your Click.",
       "description": "One button, one bird, infinite pipes. Pure tactile fidget, no touch screen, no ads, no algorithm.",

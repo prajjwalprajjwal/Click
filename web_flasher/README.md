@@ -19,8 +19,8 @@ Browser firmware installer and device hub for the open-source Clicker device eco
    - Collapses older archived releases into an interactive **dropdown button**, keeping the interface clean while preserving full access to past binaries.
 4. **Live Community Leaderboard & Boulder Sync**:
    - Integrates directly with the Cloudflare Worker serverless backend (`/api/sync` and `/api/leaderboard`).
-   - Queries telemetry (`clicks`, `flappy`, `just_ten`, `uptime_hrs`) via `\r\nGET_STATS\r\n` and submits verified deltas to the Community Boulder.
-   - Shows live podiums and top 10 rankings for Sisyphus, Flappy Bird, and Just Ten.
+   - Queries telemetry (`clicks`, `floppy` / `flappy`, `just_ten`, `uptime_hrs`) via `\r\nGET_STATS\r\n` and submits verified deltas to the Community Boulder.
+   - Shows live podiums and top 10 rankings for Sisyphus, Floppy Bird, and Just Ten.
 5. **In-Browser WebUSB Picoboot Flashing (RP2354A / RP2350)**:
    - Direct 1-click in-browser flashing for RP2354 using the integrated WebUSB Picoboot driver (`web_flasher/lib/picoboot/`).
    - Connect the device in BOOTSEL mode (hold ACTION button while plugging in USB) and flash directly without installing desktop utilities, drivers, or Python.

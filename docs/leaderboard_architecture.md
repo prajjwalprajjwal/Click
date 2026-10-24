@@ -40,7 +40,7 @@ flowchart LR
    - The browser opens a WebSerial port at 115200 baud and issues `\r\nGET_STATS\r\n`.
    - The firmware immediately flushes any active session clicks to persistent NVS storage, reads unique hardware identity (RP2354A 16-hex Unique Board ID or ESP32 12-hex eFuse MAC), queries all applets, and returns structured JSON:
      ```json
-     {"event":"stats","name":"Prajjwal's Click","chip_id":"E6614104033C71BF","clicks":35200,"flappy":42,"just_ten":10.004,"uptime_hrs":12}
+     {"event":"stats","name":"Prajjwal's Click","chip_id":"E6614104033C71BF","clicks":35200,"floppy":42,"flappy":42,"just_ten":10.004,"uptime_hrs":12}
      ```
 2. **Personalization & Bootscreen Customization**:
    - The owner name can be embedded into the firmware image via binary magic rodata signatures (`__CLICK_NAME__:<name>:__END_NAME___`) during web flashing, or stored in NVS under `clicker_cfg`.
@@ -52,6 +52,7 @@ flowchart LR
        "chip_id": "E6614104033C71BF",
        "name": "Prajjwal's Click",
        "clicks": 35200,
+       "floppy": 42,
        "flappy": 42,
        "just_ten": 10.004,
        "uptime_hrs": 12
@@ -98,7 +99,7 @@ Returns community stats and Top 10 rankings across all games:
   "top_sisyphus": [
     { "device_name": "Prajjwal's Click", "total_clicks": 35200, "last_synced_at": "2026-09-13T08:00:00Z" }
   ],
-  "top_flappy": [
+  "top_floppy": [
     { "device_name": "SkyMaster", "flappy_high_score": 42, "last_synced_at": "2026-09-13T08:00:00Z" }
   ],
   "top_timing": [
@@ -114,6 +115,7 @@ Submits hardware metrics with rate-limited crediting:
   "chip_id": "3C71BF89A1B2",
   "name": "Prajjwal's Click",
   "clicks": 35200,
+  "floppy": 42,
   "flappy": 42,
   "just_ten": 10.004,
   "uptime_hrs": 12

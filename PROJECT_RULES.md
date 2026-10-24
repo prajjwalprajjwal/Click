@@ -184,7 +184,7 @@ Click/
 │       ├── applets/                  # Isolated, plug-and-play applets
 │       │   ├── clicker/              # Sisyphus uphill clicker game & physics engine
 │       │   ├── timing_game/          # "Just 10 Seconds" accuracy timing game
-│       │   ├── flappy_bird/          # Flappy Bird arcade obstacle game
+│       │   ├── flappy_bird/          # Floppy Bird arcade obstacle game
 │       │   ├── settings/             # Hardware status, voltage & device ID screen
 │       │   └── screensaver/          # Snowfall particle animation on idle
 │       ├── fonts/                    # GFX typography (Rajdhani font family)

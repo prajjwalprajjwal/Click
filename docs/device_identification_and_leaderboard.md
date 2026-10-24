@@ -79,14 +79,14 @@ sequenceDiagram
     User->>WebFlasher: Connect via WebSerial (115200 baud)
     WebFlasher->>Device: \r\nGET_STATS\r\n
     Note over Device: Flushes active session to NVS
-    Device-->>WebFlasher: {"event":"stats","name":"Prajjwal's Click","chip_id":"E6614104033C71BF","clicks":35200,"flappy":42,"just_ten":10.004,"uptime_hrs":12}
+    Device-->>WebFlasher: {"event":"stats","name":"Prajjwal's Click","chip_id":"E6614104033C71BF","clicks":35200,"floppy":42,"flappy":42,"just_ten":10.004,"uptime_hrs":12}
 
     opt Restore or Update Clicks
         WebFlasher->>Device: SET_CLICKS 35200
         Device-->>WebFlasher: {"event":"clicks_updated","clicks":35200}
     end
 
-    WebFlasher->>Cloud: POST /api/sync { chip_id, name, clicks, flappy, just_ten, uptime_hrs }
+    WebFlasher->>Cloud: POST /api/sync { chip_id, name, clicks, floppy, flappy, just_ten, uptime_hrs }
     Cloud-->>WebFlasher: { success: true, credited_delta: 350, total_boulder_clicks: 1420580 }
     WebFlasher->>User: Display live ranking & Community Boulder contribution!
 ```

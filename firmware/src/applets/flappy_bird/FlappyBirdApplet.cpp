@@ -4,9 +4,9 @@
 #include "system/SoundFX.h"
 
 void FlappyBirdApplet::preloadState() {
-    // Read High Score from ESP32 NVS memory
+    // Read High Score from ESP32 / RP2354 NVS memory (checks floppy_hi first, then flappy_hi)
     prefs.begin("click_stats", true);
-    highScore = prefs.getUInt("flappy_hi", 0);
+    highScore = prefs.getUInt("floppy_hi", prefs.getUInt("flappy_hi", 0));
     prefs.end();
 }
 
@@ -52,8 +52,9 @@ void FlappyBirdApplet::handleGameOver() {
 
     if (currentScore > highScore) {
         highScore = currentScore;
-        // Save new high score into NVS unresetable storage
+        // Save new high score into NVS unresetable storage (dual-key for backward compatibility)
         prefs.begin("click_stats", false);
+        prefs.putUInt("floppy_hi", highScore);
         prefs.putUInt("flappy_hi", highScore);
         prefs.end();
         // High score celebratory fanfare and brief rainbow dance (0.5s)
@@ -147,7 +148,7 @@ void FlappyBirdApplet::updateAndDraw(Adafruit_SSD1306& disp) {
         disp.setTextSize(1);
         disp.setTextColor(SSD1306_WHITE);
         disp.setCursor(30, 32);
-        disp.print(F("FLAPPY BIRD"));
+        disp.print(F("FLOPPY BIRD"));
         disp.setCursor(2, 48);
         disp.print(F("PRESS ACTION TO START"));
 #endif

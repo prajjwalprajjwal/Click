@@ -75,7 +75,7 @@
 - **Intelligent Charging LED State Machine**:
   - Continuous, smooth multicolor breathing pattern while plugged into USB.
   - Applet switches via MODE button do not interrupt or flicker the breathing LED.
-  - In-game transient event cues (Just 10 yellow stop flash, Flappy Bird red game-over flash, Sisyphus milestone celebration) temporarily display over the breathing pattern and automatically return to charging breathe when complete.
+  - In-game transient event cues (Just 10 yellow stop flash, Floppy Bird red game-over flash, Sisyphus milestone celebration) temporarily display over the breathing pattern and automatically return to charging breathe when complete.
 - **Ghost LED & Quiescent Leakage Elimination**:
   - Added `WS2812Driver::clearAndHaltForSleep()` which double-latches zeros, switches pin multiplexer from PIO to SIO, drives GP11 LOW (0V), and enables internal pull-down.
   - Disabled PCF8563 RTC CLKOUT continuous 32.768kHz oscillation.
@@ -89,7 +89,7 @@
   - Zero-cost ($0/month), zero-maintenance edge backend powered by Cloudflare Workers and Cloudflare D1 (Serverless SQLite).
   - Schema defined in `server/schema.sql` (`global_stats`, `devices`, `sync_log`) with fast B-Tree indexing.
   - Endpoints:
-    - `GET /api/leaderboard`: Returns real-time community boulder statistics and top 10 rankings for Sisyphus, Flappy Bird, and Just Ten.
+    - `GET /api/leaderboard`: Returns real-time community boulder statistics and top 10 rankings for Sisyphus, Floppy Bird, and Just Ten.
     - `POST /api/sync`: Atomic score submission with rate limiting and delta crediting.
     - `GET /api/user`: Queries registered handle and stats by 12-character eFuse MAC.
 - **The "Community Boulder" Shared Mechanic**:
@@ -107,7 +107,7 @@
     - `GET_ID`: Returns unique 12-char factory eFuse MAC (`ID:<chip_id>`).
     - `GET_NAME`: Returns saved owner name (`NAME:<name>`).
     - `SET_NAME:<name>`: Writes new owner handle to NVS without reflashing firmware.
-    - `GET_STATS`: Extracts live metrics from active applets (`CLICKS:<n>,FLAPPY:<n>,JUST_TEN:<n>`).
+    - `GET_STATS`: Extracts live metrics from active applets (`CLICKS:<n>,FLOPPY:<n>,JUST_TEN:<n>`).
     - `RESET_STATS`: Allows zeroing active applet metrics.
 - **Unified Web Flasher & Live Leaderboard Hub (`web_flasher/`)**:
   - Re-architected `flasher.html`, `index.html`, and `app.js` with responsive dark cyberpunk aesthetic.
@@ -133,7 +133,7 @@
   - Dynamic stamina and fatigue gauge: Sustained rapid clicking induces physical fatigue; Sisyphus rests and recovers stamina when clicking pauses.
   - Full integer display formatting: Fixed issues where counts over 10,000 were truncated or suffixed with abbreviations; numbers now render with full comma separators (e.g. `10,000+`, `25,480`).
   - Milestone celebration overlays: Graphic banners trigger upon crossing milestones (1, 5, 10, 50, 100, 500, 1000, 5000, 10000+).
-- **Flappy Bird Minigame (`FlappyBirdApplet`)**:
+- **Floppy Bird Minigame (`FlappyBirdApplet` / `FloppyBirdApplet`)**:
   - Full arcade obstacle game featuring real-time collision detection, flapping velocity mechanics, score rendering, and persistent high score tracking.
 - **Advanced Power Management Architecture (`PowerManager.h`)**:
   - **Light Sleep (20s Idle)**: Shuts down SSD1306 OLED, releases RF/ADC, and arms RTC GPIO wakeups.

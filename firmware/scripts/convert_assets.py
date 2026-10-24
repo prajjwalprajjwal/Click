@@ -74,7 +74,8 @@ def touch_related_cpp(stem):
 
     if stem.lower() in ("bootscreen", "boot_screen", "boot"):
         cpp_to_touch.append(os.path.join(SRC_DIR, "main.cpp"))
-    elif stem.startswith("FlappyBirdApplet"):
+    elif stem.startswith("FlappyBirdApplet") or stem.startswith("FloppyBirdApplet"):
+        cpp_to_touch.append(os.path.join(SRC_DIR, "applets", "flappy_bird", "FlappyBirdApplet.cpp"))
         cpp_to_touch.append(os.path.join(SRC_DIR, "FlappyBirdApplet.cpp"))
     elif stem.startswith("TimingGameApplet"):
         cpp_to_touch.append(os.path.join(SRC_DIR, "TimingGameApplet.cpp"))

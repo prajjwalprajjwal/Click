@@ -1639,7 +1639,7 @@ async function syncDeviceTelemetry(port, { interactive = false, customNewName = 
   const hudStatus = document.getElementById('hud-status');
   const hudName = document.getElementById('hud-name');
   const hudClicks = document.getElementById('hud-clicks');
-  const hudFlappy = document.getElementById('hud-flappy');
+  const hudFlappy = document.getElementById('hud-floppy') || document.getElementById('hud-flappy');
   const hudJustTen = document.getElementById('hud-just-ten');
   const hudUuid = document.getElementById('hud-uuid');
 
@@ -1766,7 +1766,12 @@ async function syncDeviceTelemetry(port, { interactive = false, customNewName = 
     }
 
     const deviceClicks = Number(statsData.clicks || 0);
-    const deviceFlappy = Number(statsData.flappy !== undefined ? statsData.flappy : (statsData.flappy_high || 0));
+    const deviceFlappy = Number(
+      statsData.floppy !== undefined ? statsData.floppy :
+      (statsData.flappy !== undefined ? statsData.flappy :
+      (statsData.floppy_high !== undefined ? statsData.floppy_high :
+      (statsData.flappy_high || 0)))
+    );
     const deviceJustTen = Number(statsData.just_ten !== undefined ? statsData.just_ten : (statsData.just_ten_time || 0));
     const uptimeHrs = Number(statsData.uptime_hrs || 0);
 
@@ -1796,6 +1801,7 @@ async function syncDeviceTelemetry(port, { interactive = false, customNewName = 
           chip_id: deviceChipId,
           name: deviceName,
           clicks: deviceClicks,
+          floppy: deviceFlappy,
           flappy: deviceFlappy,
           just_ten: deviceJustTen,
           just_ten_time: deviceJustTen,
@@ -2041,7 +2047,7 @@ function initSyncStats() {
   const hudStatus = document.getElementById('hud-status');
   const hudName = document.getElementById('hud-name');
   const hudClicks = document.getElementById('hud-clicks');
-  const hudFlappy = document.getElementById('hud-flappy');
+  const hudFlappy = document.getElementById('hud-floppy') || document.getElementById('hud-flappy');
   const hudJustTen = document.getElementById('hud-just-ten');
   const hudUuid = document.getElementById('hud-uuid');
   const hudNote = document.getElementById('hud-note');

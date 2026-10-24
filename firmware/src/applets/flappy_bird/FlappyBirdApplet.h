@@ -94,11 +94,18 @@ public:
     void setHighScore(uint16_t score) {
         if (score > highScore) {
             highScore = score;
+            prefs.begin("click_stats", false);
+            prefs.putUInt("floppy_hi", highScore);
+            prefs.putUInt("flappy_hi", highScore);
+            prefs.end();
+            // Also maintain legacy flappy namespace for backwards compatibility
             prefs.begin("flappy", false);
             prefs.putUInt("high", highScore);
             prefs.end();
         }
     }
 };
+
+using FloppyBirdApplet = FlappyBirdApplet;
 
 #endif // FLAPPY_BIRD_APPLET_H

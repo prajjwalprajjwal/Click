@@ -222,7 +222,7 @@ In addition, we eliminated other standby leaks:
 
 #### The Problem
 1. While plugged into the charger, switching between applets caused the breathing LED to abruptly turn off and restart because applet `cleanup()` and `init()` routines called `WS2812Driver::clear()`.
-2. Conversely, when we made charging breathing indestructible, in-game LED cues (like the yellow flash on Just Ten game over, or the red flash on Flappy Bird death) could not be seen while charging.
+2. Conversely, when we made charging breathing indestructible, in-game LED cues (like the yellow flash on Just Ten game over, or the red flash on Floppy Bird death) could not be seen while charging.
 
 #### The Fix: Hierarchical Priority Engine
 We established an intelligent state machine in [WS2812.h](file:///Users/prajjwal/Documents/GitHub/Click/firmware/src/system/WS2812.h) and [main.cpp](file:///Users/prajjwal/Documents/GitHub/Click/firmware/src/main.cpp#L343-L357):

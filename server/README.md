@@ -47,7 +47,7 @@ Returns current community boulder stats and Top 10 leaderboards across all three
   "top_sisyphus": [
     { "device_name": "Prajjwal's Click", "total_clicks": 35200, "last_synced_at": "2026-09-13T08:00:00Z" }
   ],
-  "top_flappy": [
+  "top_floppy": [
     { "device_name": "SkyMaster", "flappy_high_score": 42, "last_synced_at": "2026-09-13T08:00:00Z" }
   ],
   "top_timing": [
@@ -57,12 +57,13 @@ Returns current community boulder stats and Top 10 leaderboards across all three
 ```
 
 ### `POST /api/sync`
-Syncs stats from Web Flasher with human-speed rate limiting (`chip_id` is the 16-character RP2354A Unique Board ID or 12-character ESP32 eFuse MAC):
+Syncs stats from Web Flasher with human-speed rate limiting (`chip_id` is the 16-character RP2354A Unique Board ID or 12-character ESP32 eFuse MAC; supports both `floppy` and `flappy`):
 ```json
 {
   "chip_id": "3C71BF89A1B2",
   "name": "Prajjwal's Click",
   "clicks": 35200,
+  "floppy": 42,
   "flappy": 42,
   "just_ten": 10.004,
   "uptime_hrs": 12

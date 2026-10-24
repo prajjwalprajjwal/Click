@@ -67,7 +67,7 @@ Click/
 │       ├── applets/                  <-- Self-contained, modular games & apps
 │       │   ├── clicker/              <-- Sisyphus uphill clicker game & physics engine
 │       │   ├── timing_game/          <-- "Just 10 Seconds" accuracy timing game
-│       │   ├── flappy_bird/          <-- Flappy Bird arcade obstacle game
+│       │   ├── flappy_bird/          <-- Floppy Bird arcade obstacle game
 │       │   ├── settings/             <-- Hardware status, voltage & device ID screen
 │       │   └── screensaver/          <-- Snowfall particle animation on idle
 │       ├── fonts/                    <-- Custom Adafruit GFX typography headers (Rajdhani)
@@ -147,7 +147,7 @@ The firmware features an event-driven `OSManager` hosting four built-in applets 
 * Precision stopwatch game challenging players to hold and release the button at exactly **10.0000 seconds**.
 * Displays exact millisecond accuracy, tracks personal records, and flashes yellowish LEDs upon stopping.
 
-### 3. Flappy Bird
+### 3. Floppy Bird
 * Real-time side-scrolling obstacle game featuring obstacle collision detection, velocity physics, and persistent high scores with red LED flash on game over.
 
 ### 4. Settings & System Applet
@@ -164,10 +164,10 @@ The firmware features an event-driven `OSManager` hosting four built-in applets 
 
 | Action | Control | Description |
 |:---|:---|:---|
-| **Cycle Applets** | `MODE` Button (Short Press) | Switch between **Clicker**, **Just Ten**, and **Flappy Bird** (click chime plays except before Sisyphus). |
+| **Cycle Applets** | `MODE` Button (Short Press) | Switch between **Clicker**, **Just Ten**, and **Floppy Bird** (click chime plays except before Sisyphus). |
 | **Settings Menu** | `MODE` Button (Hold > 1s) | Toggle between the currently active applet and the **SYSTEM** settings screen. |
 | **Toggle System Info** | `ACTION` Button (in Settings) | Toggle between Battery Telemetry (Page 0) and System Info (Page 1) screens. |
-| **Primary Game Action** | `ACTION` Button (Short Press) | Push boulder in Sisyphus / Flap wings in Flappy Bird / Start & Stop in Just Ten. |
+| **Primary Game Action** | `ACTION` Button (Short Press) | Push boulder in Sisyphus / Flap wings in Floppy Bird / Start & Stop in Just Ten. |
 | **Wake from Sleep** | **Same-Button Double-Click** (two clicks on the same key within 500ms) | Wakes the device from low-power sleep back to the Sisyphus game (filters accidental single clicks & cross-key bumps). |
 | **Factory Master Reset** | **Both Buttons Held** (> 4s) | Trigger master reset / clear NVS partitions and milestone progress. |
 
@@ -302,11 +302,11 @@ flowchart LR
 ### 4. Interactive Serial Telemetry Protocol 🔌
 The firmware exposes a high-speed telemetry interface over USB CDC serial (115200 baud) for browser-based synchronization:
 * `GET_STATS` / `STATS` &rarr; Flushes active clicks to storage and returns structured JSON telemetry:
-  `{"event":"stats","name":"CLICKER","chip_id":"...","clicks":35200,"flappy":42,"just_ten":10.004,"uptime_hrs":12}`
+  `{"event":"stats","name":"CLICKER","chip_id":"...","clicks":35200,"floppy":42,"flappy":42,"just_ten":10.004,"uptime_hrs":12}`
 * `SET_CLICKS <val>` &rarr; Sets lifetime click count and returns:
   `{"event":"clicks_updated","clicks":<val>}`
-* `SET_STATS CLICKS=<n> FLAPPY=<n> JUST_TEN=<f>` &rarr; Restores all mini-game scores and returns:
-  `{"event":"stats_restored","clicks":<n>,"flappy":<n>,"just_ten":<f>}`
+* `SET_STATS CLICKS=<n> FLOPPY=<n> JUST_TEN=<f>` (also accepts `FLAPPY=<n>`) &rarr; Restores all mini-game scores and returns:
+  `{"event":"stats_restored","clicks":<n>,"floppy":<n>,"flappy":<n>,"just_ten":<f>}`
 * `PING` &rarr; Returns heartbeat response: `{"event":"pong"}`
 
 ### 5. Live Links & Deployment

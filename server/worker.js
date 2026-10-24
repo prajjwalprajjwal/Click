@@ -98,7 +98,7 @@ export default {
           ).all();
         }
 
-        // Top 10 Flappy Bird flyers
+        // Top 10 Floppy Bird flyers
         const topFlappy = await db.prepare(
           "SELECT chip_id, device_name, flappy_high_score, last_synced_at FROM devices WHERE flappy_high_score > 0 ORDER BY flappy_high_score DESC LIMIT 10"
         ).all();
@@ -184,9 +184,21 @@ export default {
               sort_direction: "closest_to_10s",
               leaderboard: justTenList
             },
+            floppy_bird: {
+              id: "floppy_bird",
+              name: "Floppy Bird",
+              tags: ["GAME", "FIDGET"],
+              headline: "The classic, on your Click.",
+              description: "One button, one bird, infinite pipes. Pure tactile fidget, no touch screen, no ads, no algorithm.",
+              stat_type: "high_score",
+              primary_metric: "High Score",
+              unit: "pipes",
+              sort_direction: "desc",
+              leaderboard: flappyList
+            },
             flappy_bird: {
               id: "flappy_bird",
-              name: "Flappy Bird",
+              name: "Floppy Bird",
               tags: ["GAME", "FIDGET"],
               headline: "The classic, on your Click.",
               description: "One button, one bird, infinite pipes. Pure tactile fidget, no touch screen, no ads, no algorithm.",
@@ -197,11 +209,12 @@ export default {
               leaderboard: flappyList
             }
           },
-          // Legacy/Direct shortcuts
+          // Direct shortcuts
           global_boulder_clicks: totalBoulderClicks,
           total_devices: totalDevices,
           top_sisyphus: sisyphusList,
           top_just_ten: justTenList,
+          top_floppy: flappyList,
           top_flappy: flappyList,
           timestamp: new Date().toISOString()
         };
@@ -245,7 +258,8 @@ export default {
 
         const deviceName = sanitizeText(body.name);
         const clicks = Math.max(0, parseInt(body.clicks, 10) || 0);
-        const flappyScore = Math.max(0, parseInt(body.flappy, 10) || 0);
+        const rawFloppy = body.floppy !== undefined ? body.floppy : body.flappy;
+        const flappyScore = Math.max(0, parseInt(rawFloppy, 10) || 0);
         const rawJustTen = body.just_ten_time !== undefined ? body.just_ten_time : body.just_ten;
         const justTenTime = Math.max(0, parseFloat(rawJustTen) || 0);
         const uptimeHrs = Math.max(0, parseInt(body.uptime_hrs, 10) || 0);

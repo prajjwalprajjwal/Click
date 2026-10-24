@@ -40,8 +40,8 @@ Milestones are automatically registered in `firmware/src/screens/generated/regis
 | File | Used By | Generated Header | Generated Symbol |
 |:---|:---|:---|:---|
 | `bootscreen.png` | System power-on startup splash | `generated_assets/bootscreen.h` | `bootscreen_bmp` |
-| `FlappyBirdApplet_start.png` | Flappy Bird idle/start screen | `generated_assets/FlappyBirdApplet_start.h` | `flappybirdapplet_start_bmp` |
-| `FlappyBirdApplet_end.png` | Flappy Bird game-over screen | `generated_assets/FlappyBirdApplet_end.h` | `flappybirdapplet_end_bmp` |
+| `FlappyBirdApplet_start.png` | Floppy Bird idle/start screen | `generated_assets/FlappyBirdApplet_start.h` | `flappybirdapplet_start_bmp` |
+| `FlappyBirdApplet_end.png` | Floppy Bird game-over screen | `generated_assets/FlappyBirdApplet_end.h` | `flappybirdapplet_end_bmp` |
 | `justten_start.png` | Just 10 Seconds start screen | `generated_assets/justten_start.h` | `justten_start_bmp` |
 | `justten_end.png` | Just 10 Seconds score screen | `generated_assets/justten_end.h` | `justten_end_bmp` |
 
@@ -50,7 +50,7 @@ Milestones are automatically registered in `firmware/src/screens/generated/regis
 ### C — Sprites & Custom Bitmaps *(Arbitrary Dimensions)*
 | File | Used By | Generated Header | Generated Symbol |
 |:---|:---|:---|:---|
-| `FlappyBirdApplet_char.png` (10×8) | Flappy Bird player sprite | `generated_assets/FlappyBirdApplet_char.h` | `flappybirdapplet_char_bmp` |
+| `FlappyBirdApplet_char.png` (10×8) | Floppy Bird player sprite | `generated_assets/FlappyBirdApplet_char.h` | `flappybirdapplet_char_bmp` |
 
 > Note: Sisyphus boulder and walking/pushing sprite sheets are maintained directly in `firmware/src/applets/clicker/SisyphusSprites.h` for sub-pixel animation performance.
 
@@ -66,12 +66,12 @@ All app assets are centralized in `all_assets.h`:
 // Example: Draw boot splash
 display.drawBitmap(0, 0, bootscreen_bmp, BOOTSCREEN_WIDTH, BOOTSCREEN_HEIGHT, SSD1306_WHITE);
 
-// Example: Draw Flappy Bird start banner
+// Example: Draw Floppy Bird start banner
 display.drawBitmap(0, 0, flappybirdapplet_start_bmp, 
                    FLAPPYBIRDAPPLET_START_WIDTH, FLAPPYBIRDAPPLET_START_HEIGHT, 
                    SSD1306_WHITE);
 
-// Example: Draw Flappy Bird character sprite
+// Example: Draw Floppy Bird character sprite
 display.drawBitmap(playerX, playerY, flappybirdapplet_char_bmp, 
                    FLAPPYBIRDAPPLET_CHAR_WIDTH, FLAPPYBIRDAPPLET_CHAR_HEIGHT, 
                    SSD1306_WHITE);
