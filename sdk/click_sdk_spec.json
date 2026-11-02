@@ -1,0 +1,246 @@
+{
+  "version": "1.0.0",
+  "system_name": "Click OS",
+  "hardware": {
+    "primary": {
+      "name": "Click 4 PCBA",
+      "mcu": "Raspberry Pi RP2354A",
+      "core": "Dual ARM Cortex-M33 @ 48MHz/150MHz",
+      "ram_bytes": 524288,
+      "flash_bytes": 4194304,
+      "display": {
+        "controller": "SSD1306",
+        "type": "Monochrome OLED",
+        "width": 128,
+        "height": 64,
+        "bus": "I2C1 (Wire1)",
+        "speed_hz": 400000,
+        "address": "0x3C",
+        "rotation": 2
+      },
+      "inputs": [
+        {
+          "name": "MODE",
+          "pin": "GP0",
+          "type": "Tactile Button",
+          "active": "LOW",
+          "events": [
+            "onModeClick",
+            "onModeHold"
+          ]
+        },
+        {
+          "name": "ACTION",
+          "pin": "QSPI_SS / BOOTSEL",
+          "type": "Primary Game/Click Button",
+          "active": "LOW",
+          "events": [
+            "onActionClick",
+            "onActionHold"
+          ]
+        }
+      ],
+      "rgb_leds": {
+        "count": 2,
+        "driver": "WS2812 / SK6812",
+        "pin": "GP11 (PIO)"
+      },
+      "buzzer": {
+        "pin": "GP27",
+        "driver": "NPN BJT (MMBT3904)",
+        "type": "Piezo/Magnetic Buzzer"
+      },
+      "battery": {
+        "charger": "ETA6003 (STAT on GP1)",
+        "adc_pin": "GP29 (ADC3)",
+        "divider_ratio": 2.0
+      }
+    },
+    "legacy": {
+      "name": "Click 1 Prototype",
+      "mcu": "ESP32-WROOM-32E",
+      "core": "Xtensa Dual-Core 240MHz",
+      "ram_bytes": 524288,
+      "flash_bytes": 4194304
+    }
+  },
+  "lifecycle_hooks": [
+    {
+      "name": "init()",
+      "required": true,
+      "description": "Called once when applet is activated. Initialize variables, pre-render, or restore state."
+    },
+    {
+      "name": "update()",
+      "required": true,
+      "description": "Called every frame (capped ~30-40 FPS). Update game state, physics, non-blocking timers."
+    },
+    {
+      "name": "draw()",
+      "required": true,
+      "description": "Called after update(). Render frame to Adafruit_SSD1306 display. Do NOT call display.clearDisplay() or display.display() directly; OSManager handles display flush."
+    },
+    {
+      "name": "cleanup()",
+      "required": false,
+      "description": "Called when switching away from this applet. Save state to Preferences, clear LEDs."
+    },
+    {
+      "name": "onPrepareSleep()",
+      "required": false,
+      "description": "Called before device enters light/deep sleep."
+    },
+    {
+      "name": "onActionClick()",
+      "required": false,
+      "description": "Fired when ACTION button is clicked (released under 400ms)."
+    },
+    {
+      "name": "onActionHold()",
+      "required": false,
+      "description": "Fired when ACTION button is held for >= 500ms."
+    },
+    {
+      "name": "onModeClick()",
+      "required": false,
+      "description": "Fired when MODE button is clicked. Note: In OSManager, clicking MODE typically advances to next applet."
+    },
+    {
+      "name": "onModeHold()",
+      "required": false,
+      "description": "Fired when MODE button is held for >= 500ms."
+    },
+    {
+      "name": "onBothHeld()",
+      "required": false,
+      "description": "Fired when both buttons are held simultaneously for >= 800ms."
+    }
+  ],
+  "fonts": [
+    {
+      "name": "Rajdhani12pt7b",
+      "font_var": "&Rajdhani12pt7b",
+      "line_height": 14,
+      "usage": "Subtitles, status bar, small values"
+    },
+    {
+      "name": "Rajdhani18pt7b",
+      "font_var": "&Rajdhani18pt7b",
+      "line_height": 20,
+      "usage": "Medium titles, secondary scores"
+    },
+    {
+      "name": "Rajdhani24pt7b",
+      "font_var": "&Rajdhani24pt7b",
+      "line_height": 26,
+      "usage": "Primary counter, big score"
+    },
+    {
+      "name": "Rajdhani32pt7b",
+      "font_var": "&Rajdhani32pt7b",
+      "line_height": 34,
+      "usage": "Giant numbers, milestone popups"
+    },
+    {
+      "name": "Rajdhani40pt7b",
+      "font_var": "&Rajdhani40pt7b",
+      "line_height": 42,
+      "usage": "Ultra giant display font"
+    }
+  ],
+  "audio_presets": [
+    {
+      "name": "playClick",
+      "description": "Quick tactile click / UI navigation",
+      "signature": "SoundFX::playClick()"
+    },
+    {
+      "name": "playSisyphusPush",
+      "description": "Sisyphus forward push heave (silent or subtle)",
+      "signature": "SoundFX::playSisyphusPush()"
+    },
+    {
+      "name": "playSisyphusRollTick",
+      "description": "Sisyphus downhill boulder roll rumble tick",
+      "signature": "SoundFX::playSisyphusRollTick()"
+    },
+    {
+      "name": "playSisyphusDownhill",
+      "description": "Sisyphus starts rolling downhill: short 3 beeps",
+      "signature": "SoundFX::playSisyphusDownhill()"
+    },
+    {
+      "name": "playSisyphusBottomChime",
+      "description": "Sisyphus reaches bottom: light pleasant chime",
+      "signature": "SoundFX::playSisyphusBottomChime()"
+    },
+    {
+      "name": "playFlap",
+      "description": "Floppy Bird: wing flap chirp",
+      "signature": "SoundFX::playFlap()"
+    },
+    {
+      "name": "playScore",
+      "description": "Floppy Bird: pipe passed score chime",
+      "signature": "SoundFX::playScore()"
+    },
+    {
+      "name": "playGameOver",
+      "description": "Floppy Bird: crash / game over slide",
+      "signature": "SoundFX::playGameOver()"
+    },
+    {
+      "name": "playJustTenStart",
+      "description": "Just Ten: counting start tick",
+      "signature": "SoundFX::playJustTenStart()"
+    },
+    {
+      "name": "playJustTenRelease",
+      "description": "Just Ten: Action button released (standard release tone)",
+      "signature": "SoundFX::playJustTenRelease()"
+    },
+    {
+      "name": "playCelebrationFanfare",
+      "description": "Just Ten: Within 5% Accuracy Celebration Fanfare!",
+      "signature": "SoundFX::playCelebrationFanfare()"
+    },
+    {
+      "name": "playStartup",
+      "description": "Startup Chime",
+      "signature": "SoundFX::playStartup()"
+    }
+  ],
+  "led_effects": [
+    {
+      "method": "WS2812Driver::flash(uint8_t r, uint8_t g, uint8_t b, uint16_t durationMs)",
+      "description": "Flashes both RGB LEDs with the given color for specified duration"
+    },
+    {
+      "method": "WS2812Driver::breathe(uint8_t r, uint8_t g, uint8_t b, uint16_t periodMs)",
+      "description": "Smooth sinusoidal breathing color animation across LEDs"
+    },
+    {
+      "method": "WS2812Driver::pulse(uint8_t r, uint8_t g, uint8_t b, uint16_t durationMs)",
+      "description": "Single-shot smooth pulse animation"
+    },
+    {
+      "method": "WS2812Driver::celebrate(uint16_t durationMs)",
+      "description": "Rainbow celebration party effect (used for high-scores / milestones)"
+    },
+    {
+      "method": "WS2812Driver::setPixel(uint8_t index, uint8_t r, uint8_t g, uint8_t b)",
+      "description": "Sets raw RGB value for LED 0 or 1 (requires WS2812Driver::show())"
+    },
+    {
+      "method": "WS2812Driver::clear()",
+      "description": "Turns off both RGB LEDs"
+    }
+  ],
+  "rules": [
+    "Never use blocking delay() calls inside update() or draw(). Use non-blocking millis() or micros() delta timers.",
+    "Display is 128x64 monochrome (SSD1306). Color constants are SSD1306_WHITE (1) and SSD1306_BLACK (0).",
+    "Numbers and scores must ALWAYS be printed as full integers with commas (e.g., 10,000, 12,345), never truncated (no 10k/1M suffixes).",
+    "Keep RAM allocations static. Do NOT perform heap allocations (new/malloc) in update() or draw().",
+    "Use ThemeFonts::drawCentered(font, text, centerY) or ThemeFonts::measure() for clean typography."
+  ]
+}
